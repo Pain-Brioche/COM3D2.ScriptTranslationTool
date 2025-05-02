@@ -156,6 +156,7 @@ namespace COM3D2.ScriptTranslationTool
                 if ((key.Key == ConsoleKey.D7) || (key.Key == ConsoleKey.NumPad7)) { JpScriptExtraction.ExtractJapanese(isSourceJpGame); }
                 if ((key.Key == ConsoleKey.D8) || (key.Key == ConsoleKey.NumPad8)) { EngScriptExtraction.ExtractOfficial(isSourceEngGame); }
                 if ((key.Key == ConsoleKey.D9) || (key.Key == ConsoleKey.NumPad9)) { UITranslation.Process(); }
+                //if ((key.Key == ConsoleKey.D0) || (key.Key == ConsoleKey.NumPad0)) { Cache.TestZst(); }
 
 
                 Console.ResetColor();
@@ -164,7 +165,7 @@ namespace COM3D2.ScriptTranslationTool
                 Console.Write($" 3. Export to i18nEx: "); Tools.WriteLine(exportToi18nEx.ToString(), ConsoleColor.Blue);
                 Console.Write($" 4. Export with official translation: "); Tools.WriteLine((!isSafeExport).ToString(), ConsoleColor.Blue);
                 Console.Write($" 5. Forced translation: "); Tools.WriteLine(forcedTranslation.ToString(), ConsoleColor.Blue);
-                Console.Write($" 6. Export as: "); Tools.WriteLine(isExportBson ? "A single .bson" : "Collection of .txt", ConsoleColor.Blue);
+                Console.Write($" 6. Export as: "); Tools.WriteLine(isExportBson ? "A single .bson & .zst" : "Collection of .txt", ConsoleColor.Blue);
                 Console.Write($" 7. Build/Update the japanese cache. Source: "); Tools.WriteLine($"{(isSourceJpGame ? jpGameDataPath : japaneseScriptFolder)}", ConsoleColor.Blue);
                 Console.Write($" 8. Build/Update the official translation cache. Source: "); Tools.WriteLine($"{(isSourceEngGame ? engGameDataPath : englishScriptFolder)}", ConsoleColor.Blue);
                 Console.Write($" 9. Translate UI .csv");

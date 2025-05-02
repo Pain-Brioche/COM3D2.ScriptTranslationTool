@@ -42,15 +42,6 @@ namespace COM3D2.ScriptTranslationTool
                 string filename = Path.GetFileName(file);
                 bool hasError = false;
 
-                /*
-                // Load already translated script file with the same name if it exists
-                if (tldScripts.ContainsKey(filename))
-                {
-                    Console.WriteLine($"{filename} already exists, merging scripts");
-                    tldLines = Cache.LoadFromFile(tldScripts[filename]);
-                }
-                */
-
                 Tools.WriteLine($"\n-------- {filename} --------", ConsoleColor.Yellow);
 
                 //getting line list from one of two potential sources
@@ -198,6 +189,12 @@ namespace COM3D2.ScriptTranslationTool
                 Tools.MakeFolder(Program.i18nExScriptFolder);
                 string bsonPath = Path.Combine(Program.i18nExScriptFolder, "script.bson");
                 Cache.SaveBson(bsonDictionarry, bsonPath);
+
+
+                Tools.WriteLine("\nSaving script as .zst.", ConsoleColor.Magenta);
+                Tools.MakeFolder(Program.i18nExScriptFolder);
+                string zstPath = Path.Combine(Program.i18nExScriptFolder, "script.zst");
+                Cache.SaveZstdMsgPack(bsonDictionarry, zstPath);
             }
         }
 

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -85,9 +86,7 @@ namespace COM3D2.ScriptTranslationTool
                     if (String.IsNullOrWhiteSpace(currentLine.Japanese))
                         continue;
 
-
-
-                    //retrieve from tempCache
+                    //retrieve from Cache
                     string category = Path.GetFileNameWithoutExtension(csv);
                     string key = currentLine.Key;
                     string term = $"{category}/{key}";

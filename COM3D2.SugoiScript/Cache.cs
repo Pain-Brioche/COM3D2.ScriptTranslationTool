@@ -6,6 +6,8 @@ using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json.Bson;
+using MessagePack;
+using ZstdSharp;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -41,7 +43,7 @@ namespace COM3D2.ScriptTranslationTool
                     if (string.IsNullOrEmpty(line)) { continue; }
                     if (line.StartsWith(@"@VoiceSubtitle")) {
                         subs.Add(line);
-                        continue; 
+                        continue;
                     }
 
                     try
@@ -53,13 +55,13 @@ namespace COM3D2.ScriptTranslationTool
                         // remove unwanted scenarios
                         if (parts.Length != 2 || string.IsNullOrEmpty(value) || string.IsNullOrEmpty(key))
                         {
-                            continue; 
+                            continue;
                         }
 
                         if (!dict.ContainsKey(key))
                         {
                             dict[key] = value;
-                        }                        
+                        }
                     }
                     catch (IndexOutOfRangeException)
                     {
@@ -68,7 +70,7 @@ namespace COM3D2.ScriptTranslationTool
                     }
 
                     if (progress)
-                    {                        
+                    {
                         Tools.ShowProgress(count, total);
                     }
                 }
@@ -153,7 +155,9 @@ namespace COM3D2.ScriptTranslationTool
             }
 
             // loading multiple custom translation .txt cache 
-            string[] manualCaches = Directory.GetFiles(Program.cacheFolder, "CustomTranslationCache_*", SearchOption.AllDirectories);
+            string[] manualCaches = Directory.GetFiles(Program.cacheFolder, "*.*", SearchOption.AllDirectories);
+            manualCaches = manualCaches.Where(f => Path.GetFileName(f).StartsWith("CustomTranslationCache_")).ToArray();
+
             if (manualCaches.Length > 0)
             {
                 foreach (string manualCache in manualCaches)
@@ -259,7 +263,7 @@ namespace COM3D2.ScriptTranslationTool
             string str = $"##{line.FilePath}\n{line.Japanese}\n{line.English}\n\n";
             File.AppendAllText(Program.errorFile, str);
         }
- 
+
         /* outdated, uses the old cache format
         /// <summary>
         /// returns eventual translation from manual, official or machine cache 
@@ -296,8 +300,8 @@ namespace COM3D2.ScriptTranslationTool
         {
             if (isSafeExport)
             {
-                string safeCacheFilePath = $"{ cacheFilePath}_safe";
-                string safeJson = JsonConvert.SerializeObject(dic, Formatting.Indented, new JsonSerializerSettings { ContractResolver = new SafeContractResolver()});
+                string safeCacheFilePath = $"{cacheFilePath}_safe";
+                string safeJson = JsonConvert.SerializeObject(dic, Formatting.Indented, new JsonSerializerSettings { ContractResolver = new SafeContractResolver() });
                 File.WriteAllText(safeCacheFilePath, safeJson);
             }
 
@@ -322,6 +326,44 @@ namespace COM3D2.ScriptTranslationTool
             {
                 JsonSerializer serializer = new JsonSerializer();
                 serializer.Serialize(writer, objectToSerialize);
+            }
+        }
+
+        public static void SaveZstdMsgPack<T>(T objectToSerialize, string path)
+        {
+            MessagePackSerializerOptions SerializerOptions = new MessagePackSerializerOptions(MessagePack.Resolvers.ContractlessStandardResolver.Instance);
+
+            using (var fileStream = new FileStream(path, FileMode.Create))
+            using (var compressor = new CompressionStream(fileStream,22))
+            {
+                MessagePackSerializer.Serialize(compressor, objectToSerialize, SerializerOptions);
+            }     
+        }
+
+        public static void TestZst()
+        {
+            //cleaning now useless translation cache
+            scriptCache.Clear();
+
+
+            string sourcePath = Program.i18nExScriptFolder + "\\script.bson.MsgPack";
+            string savePath = Program.i18nExScriptFolder + "\\script.zst";
+            MessagePackSerializerOptions SerializerOptions = new MessagePackSerializerOptions(MessagePack.Resolvers.ContractlessStandardResolver.Instance);
+
+            //Loading data 
+            Console.WriteLine("Loading Data");
+            byte[] data = File.ReadAllBytes(sourcePath);
+            Dictionary <string, byte[]> testDic = MessagePackSerializer.Deserialize<Dictionary<string,byte[]>>(data);
+
+
+            //Compressing and saving
+            Console.WriteLine("Compression");
+            using (var fileStream = new FileStream(savePath, FileMode.Create))
+            {
+                using (var compressor = new CompressionStream(fileStream, 22))
+                {
+                    MessagePackSerializer.Serialize(compressor, testDic, SerializerOptions);
+                }
             }
         }
 

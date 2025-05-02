@@ -195,16 +195,17 @@ namespace COM3D2.ScriptTranslationTool
             //returns the first best translation available, otherwise returns an empty string.
             get
             {
-                if (!string.IsNullOrEmpty(ManualTranslation))
-                {
-                    Color = ConsoleColor.Cyan;
-                    return ManualTranslation;
-                }
-                else if (!string.IsNullOrEmpty(OfficialTranslation) && !Program.isSafeExport)
+                if (!string.IsNullOrEmpty(OfficialTranslation) && !Program.isSafeExport)
                 {
                     Color = ConsoleColor.Green;
                     return OfficialTranslation;
                 }
+                else if (!string.IsNullOrEmpty(ManualTranslation))
+                {
+                    Color = ConsoleColor.Cyan;
+                    return ManualTranslation;
+                }
+
                 else if (!string.IsNullOrEmpty(MachineTranslation))
                 {
                     Color = ConsoleColor.DarkBlue;

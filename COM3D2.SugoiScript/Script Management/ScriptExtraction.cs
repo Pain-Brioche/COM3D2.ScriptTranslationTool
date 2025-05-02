@@ -221,7 +221,7 @@ namespace COM3D2.ScriptTranslationTool
                         }
 
                         //Choice type boxes
-                        else if (script.Lines[i].StartsWith("@ChoicesSet", StringComparison.InvariantCultureIgnoreCase))
+                        else if (script.Lines[i].StartsWith("@ChoicesSet", StringComparison.InvariantCultureIgnoreCase) || script.Lines[i].StartsWith("@VRChoicesSet", StringComparison.InvariantCultureIgnoreCase))
                         {
                             script.CaptureChoice(i);
                         }
@@ -556,7 +556,7 @@ namespace COM3D2.ScriptTranslationTool
             return scripts[0];            
         }
 
-        //Kiss and Unity use a BOM at the start of scripts to know if it's encoded in UTF8 (EF BB BF or as numbers 239 187 191)
+        //Kiss and Unity use a BOM at the start of scripts to know if it's encoded in UTF8 (EF BB BF or as numbers 239 187 191)  
         private bool GetEncoding(byte[] sjis_bytes)
         {
             if (sjis_bytes != null && sjis_bytes.Length >= 3 && sjis_bytes[0] == 239 && sjis_bytes[1] == 187 && sjis_bytes[2] == 191)
