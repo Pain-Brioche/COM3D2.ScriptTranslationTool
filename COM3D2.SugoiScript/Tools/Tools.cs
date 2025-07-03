@@ -2,6 +2,10 @@
 using System.IO;
 using System.Configuration;
 using Microsoft.Win32;
+using Newtonsoft.Json.Bson;
+using Newtonsoft.Json;
+using MessagePack;
+using ZstdSharp;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -31,7 +35,6 @@ namespace COM3D2.ScriptTranslationTool
             }
         }
 
-
         /// <summary>
         /// return a formated line suited for scripts and caches
         /// </summary>
@@ -43,7 +46,6 @@ namespace COM3D2.ScriptTranslationTool
             string formatedLine = $"{jp}{Program.splitChar}{eng}\n";
             return formatedLine;
         }
-
 
         /// <summary>
         /// Check if sugoi translator is up and running
@@ -145,6 +147,40 @@ namespace COM3D2.ScriptTranslationTool
             Console.ForegroundColor = color;
             Console.Write(str);
             Console.ResetColor();
+        }
+    }
+    internal static class Export
+    {
+        /// <summary>
+        /// Save objects as .bson
+        /// </summary>
+        /// <param name="objectToSerialize"></param>
+        /// <param name="path"></param>
+        public static void SaveBson<T>(T objectToSerialize, string path)
+        {
+            using (var fileStream = new FileStream(path, FileMode.Create))
+            using (var writer = new BsonDataWriter(fileStream))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(writer, objectToSerialize);
+            }
+        }
+
+        /// <summary>
+        /// Saves an object as messagePack compressed as .zst
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="objectToSerialize"></param>
+        /// <param name="path"></param>
+        public static void SaveZstdMsgPack<T>(T objectToSerialize, string path)
+        {
+            MessagePackSerializerOptions SerializerOptions = new MessagePackSerializerOptions(MessagePack.Resolvers.ContractlessStandardResolver.Instance);
+
+            using (var fileStream = new FileStream(path, FileMode.Create))
+            using (var compressor = new CompressionStream(fileStream, 22))
+            {
+                MessagePackSerializer.Serialize(compressor, objectToSerialize, SerializerOptions);
+            }
         }
     }
 }

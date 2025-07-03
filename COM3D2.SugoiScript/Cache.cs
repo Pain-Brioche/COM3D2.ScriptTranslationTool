@@ -13,10 +13,6 @@ namespace COM3D2.ScriptTranslationTool
 {
     internal static class Cache
     {
-        //internal static Dictionary<string, string> machine = new Dictionary<string, string>();
-        //internal static Dictionary<string, string> official = new Dictionary<string, string>();
-        //internal static Dictionary<string, string> manual = new Dictionary<string, string>();
-
         internal static Dictionary<string, ScriptLine> scriptCache = new Dictionary<string, ScriptLine>();
         internal static Dictionary<string, CsvLine> csvCache = new Dictionary<string, CsvLine>();
 
@@ -83,6 +79,8 @@ namespace COM3D2.ScriptTranslationTool
             return dict;
         }
 
+
+        // I figured I'd just keep that to load legacy caches, it would be a waste to loose them.
         internal static void LoadOfficialCache(ref int officialCount)
         {
             if (File.Exists(Program.officialCacheFile))
@@ -94,6 +92,10 @@ namespace COM3D2.ScriptTranslationTool
                 {
                     officialCount++;
 
+                    Db.Add(entry.Key, entry.Value, TlType.Official);                    
+
+                    //legacy cache stuff, to be delete
+                    /*
                     if (scriptCache.ContainsKey(entry.Key))
                     {
                         if (string.IsNullOrEmpty(scriptCache[entry.Key].OfficialTranslation))
@@ -103,6 +105,7 @@ namespace COM3D2.ScriptTranslationTool
                     {
                         scriptCache.Add(entry.Key, new ScriptLine(Program.officialCacheFile, entry.Key, official: entry.Value));
                     }
+                    */
                 }
             }
         }
@@ -118,6 +121,11 @@ namespace COM3D2.ScriptTranslationTool
                 foreach (KeyValuePair<string, string> entry in machineDic)
                 {
                     machineCount++;
+
+                    Db.Add(entry.Key, entry.Value, TlType.Machine);
+
+                    //legacy cache stuff, to be delete
+                    /*
                     if (scriptCache.ContainsKey(entry.Key))
                     {
                         if (string.IsNullOrEmpty(scriptCache[entry.Key].MachineTranslation))
@@ -127,6 +135,7 @@ namespace COM3D2.ScriptTranslationTool
                     {
                         scriptCache.Add(entry.Key, new ScriptLine(Program.machineCacheFile, entry.Key, machine: entry.Value));
                     }
+                    */
                 }
             }
         }
@@ -142,6 +151,11 @@ namespace COM3D2.ScriptTranslationTool
                 foreach (KeyValuePair<string, string> entry in manualDic)
                 {
                     manualCount++;
+
+                    Db.Add(entry.Key, entry.Value, TlType.Manual);
+
+                    //legacy cache stuff, to be delete
+                    /*
                     if (scriptCache.ContainsKey(entry.Key))
                     {
                         if (string.IsNullOrEmpty(scriptCache[entry.Key].ManualTranslation))
@@ -151,6 +165,7 @@ namespace COM3D2.ScriptTranslationTool
                     {
                         scriptCache.Add(entry.Key, new ScriptLine(Program.manualCacheFile, entry.Key, manual: entry.Value));
                     }
+                    */
                 }
             }
 
@@ -167,6 +182,12 @@ namespace COM3D2.ScriptTranslationTool
                     foreach (KeyValuePair<string, string> entry in loadedCache)
                     {
                         manualCount++;
+
+                        Db.Add(entry.Key, entry.Value, TlType.Manual);
+
+
+                        //legacy cache stuff, to be delete
+                        /*
                         if (scriptCache.ContainsKey(entry.Key))
                         {
                             if (string.IsNullOrEmpty(scriptCache[entry.Key].ManualTranslation))
@@ -176,6 +197,7 @@ namespace COM3D2.ScriptTranslationTool
                         {
                             scriptCache.Add(entry.Key, new ScriptLine(Program.manualCacheFile, entry.Key, manual: entry.Value));
                         }
+                        */
                     }
                 }
             }
@@ -264,34 +286,6 @@ namespace COM3D2.ScriptTranslationTool
             File.AppendAllText(Program.errorFile, str);
         }
 
-        /* outdated, uses the old cache format
-        /// <summary>
-        /// returns eventual translation from manual, official or machine cache 
-        /// </summary>
-        internal static ILine Get(ILine line)
-        {
-            if (manual.ContainsKey(line.Japanese))
-            {
-                line.ManualTranslation = manual[line.Japanese];
-                line.Color = ConsoleColor.Cyan;
-            }
-            else if (official.ContainsKey(line.Japanese))
-            {
-                line.OfficialTranslation = official[line.Japanese];
-                line.Color = ConsoleColor.Green;
-            }
-            else if (machine.ContainsKey(line.Japanese))
-            {
-                line.ManualTranslation = machine[line.Japanese];
-                line.Color = ConsoleColor.DarkBlue;
-            }
-            else
-            {
-                line.Color = ConsoleColor.Blue;                
-            }
-            return line;
-        }
-        */
 
         /// <summary>
         /// Save Cache as .json
@@ -319,26 +313,9 @@ namespace COM3D2.ScriptTranslationTool
             return dictionary;
         }
 
-        public static void SaveBson<T>(T objectToSerialize, string path)
-        {
-            using (var fileStream = new FileStream(path, FileMode.Create))
-            using (var writer = new BsonDataWriter(fileStream))
-            {
-                JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(writer, objectToSerialize);
-            }
-        }
 
-        public static void SaveZstdMsgPack<T>(T objectToSerialize, string path)
-        {
-            MessagePackSerializerOptions SerializerOptions = new MessagePackSerializerOptions(MessagePack.Resolvers.ContractlessStandardResolver.Instance);
 
-            using (var fileStream = new FileStream(path, FileMode.Create))
-            using (var compressor = new CompressionStream(fileStream,22))
-            {
-                MessagePackSerializer.Serialize(compressor, objectToSerialize, SerializerOptions);
-            }     
-        }
+
 
         public static void TestZst()
         {

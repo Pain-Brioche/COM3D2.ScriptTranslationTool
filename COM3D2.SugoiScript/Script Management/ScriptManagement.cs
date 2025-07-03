@@ -68,6 +68,25 @@ namespace COM3D2.ScriptTranslationTool
             File.AppendAllText(path, savedString);
         }
 
+        internal static void SaveTxt(string scriptName, IEnumerable<string> lines)
+        {
+            string folder = "[UnCategorized]";
+
+            foreach (KeyValuePair<string, string> kvp in SortedFolder.Dict)
+            {
+                if (scriptName.StartsWith(kvp.Key))
+                {
+                    folder = kvp.Value;
+                    break;
+                }
+            }
+
+            string fileName = $"{Path.GetFileNameWithoutExtension(scriptName)}.txt";
+            string path = Path.Combine(Program.i18nExScriptFolder, folder, fileName);
+            File.AppendAllLines(path, lines);
+        }
+
+
         internal static void MoveFinished(string file, bool hasError)
         {
             string endPath;

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -10,6 +11,7 @@ namespace COM3D2.ScriptTranslationTool
         internal static Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
 
         internal static string cacheFolder = @"Caches";
+        internal static string databaseFile = @"Caches\TranslationData.json";
         internal static string machineCacheFile = @"Caches\MachineTranslationCache.txt";
         internal static string officialCacheFile = @"Caches\OfficialTranslationCache.txt";
         internal static string officialSubtitlesCache = @"Caches\officialSubtitlesCache.txt";
@@ -53,7 +55,6 @@ namespace COM3D2.ScriptTranslationTool
             Tools.MakeFolder(japaneseScriptFolder);
             Tools.MakeFolder(cacheFolder);
             Tools.MakeFolder(japaneseUIFolder);
-            Tools.MakeFolder(archistoryFolder);
 
             if (moveFinishedRawScript)
                 Tools.MakeFolder(translatedScriptFolder);
@@ -61,44 +62,15 @@ namespace COM3D2.ScriptTranslationTool
             int scriptsNb = Directory.EnumerateFiles(japaneseScriptFolder, "*.*", SearchOption.AllDirectories).Count(f => Path.GetExtension(f) == ".txt");
             int UInb = Directory.EnumerateFiles(japaneseUIFolder, "*.csv", SearchOption.AllDirectories).Count();
 
+            // Loading the translation database and counting content
+            LoadDatabase();
 
-            /*
-            if (scriptsNb > 0)
-                Tools.WriteLine($"Number of script files to translate: {scriptsNb}", ConsoleColor.DarkGreen);
-            else
-                Tools.WriteLine($"No Japanese scripts found, skipping script translation", ConsoleColor.DarkRed);
+            //Cache system is considered legacy, this is only to load pre-existing cache files into the database.
+            LoadLegacyCache();
 
-            if (UInb > 0)
-                Tools.WriteLine($"Number of UI files to translate: {UInb}", ConsoleColor.DarkGreen);
-            else
-                Tools.WriteLine($"No UI files found, skipping UI translation", ConsoleColor.DarkRed);
-            Console.WriteLine("");
-            */
+            //Loading Official .json (from I2 language.arc), those are UI translation stuff
+            LoadI2JSon();
 
-
-            int officialCount = 0;
-            int manualCount = 0;
-            int machineCount = 0;
-
-            Cache.LoadOfficialCache(ref officialCount);
-            Cache.LoadManualCache(ref manualCount);
-            Cache.LoadMachineCache(ref machineCount);
-
-
-            Console.WriteLine("\n");
-
-            if (officialCount > 0)
-            {
-                Console.WriteLine($"Officialy Translated lines Loaded: {officialCount}");
-            }
-            if (manualCount > 0)
-            {
-                Console.WriteLine($"Manually Translated lines Loaded: {manualCount}");
-            }
-            if (machineCount > 0)
-            {
-                Console.WriteLine($"Machine Translated lines Loaded: {machineCount}");
-            }
 
             Console.WriteLine("\n===================== Informations =====================");
 
@@ -184,6 +156,103 @@ namespace COM3D2.ScriptTranslationTool
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.SetCursorPosition(0, Console.CursorTop - 9);
+            }
+        }
+
+        private static void LoadDatabase()
+        {
+
+            if (!File.Exists(databaseFile))
+            {
+                return; 
+            } 
+
+            Tools.WriteLine("Loading Translation Data.", ConsoleColor.White);
+            Db.LoadFromJson();
+            Console.WriteLine($"Official Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Official))}");
+            Console.WriteLine($"Manual Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Manual))}");
+            Console.WriteLine($"Machine Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Machine))}");
+        }
+
+        private static void LoadLegacyCache()
+        {
+            if (File.Exists(machineCacheFile) || File.Exists(officialCacheFile) || File.Exists(machineCacheFile))
+            {
+                Tools.WriteLine("\nLoading legacy caches.", ConsoleColor.White);
+
+                int officialCount = 0;
+                int manualCount = 0;
+                int machineCount = 0;
+
+                Cache.LoadOfficialCache(ref officialCount);
+                Cache.LoadManualCache(ref manualCount);
+                Cache.LoadMachineCache(ref machineCount);
+
+
+                Console.WriteLine("\n");
+
+                if (officialCount > 0)
+                    Console.WriteLine($"Legacy Official Translations Loaded: {officialCount}");
+                if (manualCount > 0)
+                    Console.WriteLine($"Legacy Manual Translations Loaded: {manualCount}");
+                if (machineCount > 0)
+                    Console.WriteLine($"Legacy Machine Translation Loaded: {machineCount}");
+
+                if (officialCount + manualCount + machineCount > 0)
+                {
+                    Db.SaveToJson();
+
+                    Console.WriteLine("Legacy caches have been loaded and saved inside the database, you can delete them from the cache folder.");
+                }
+            }
+        }
+
+        private static void LoadI2JSon()
+        {
+            Tools.WriteLine("\nLoading I2 .json.", ConsoleColor.White);
+
+            string[] I2json =
+{
+                "dynamic.json",
+                "dance_subtitle.json",
+                "parts.json",
+                "yotogi.json"
+            };
+
+            if (I2json.Any(f => File.Exists(Path.Combine(Program.cacheFolder, f))))
+            {
+                foreach (string jsonFile in I2json)
+                {
+                    string jsonPath = Path.Combine(Program.cacheFolder, jsonFile);
+
+                    if (!File.Exists(jsonPath)) continue;
+
+                    string jsonData = File.ReadAllText(jsonPath);
+
+                    var jsonSerializerSettings = new JsonSerializerSettings();
+                    jsonSerializerSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
+
+                    var translationsTerms = JsonConvert.DeserializeObject<TermDatas>(jsonData, jsonSerializerSettings);
+
+                    int count = 0;
+
+                    foreach (var termData in translationsTerms.mTerms)
+                    {
+                        string japanese = termData.Languages[0];
+                        string official = termData.Languages[1];
+
+                        if (!string.IsNullOrEmpty(japanese))
+                        {
+                            Db.Add(japanese, official, TlType.Official);
+                            count++;
+                        }
+                    }
+                    Console.WriteLine($"{count} translations recovered from {jsonFile}");
+                }
+
+                Db.SaveToJson();
+
+                Console.WriteLine("Officiel .json have been loaded and saved inside the database, you can delete them from the cache folder.");
             }
         }
     }
