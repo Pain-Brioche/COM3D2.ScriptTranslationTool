@@ -11,11 +11,12 @@ namespace COM3D2.ScriptTranslationTool
         static Dictionary<string, List<string>> jpCache = new Dictionary<string, List<string>>();
         static List<string> scripts = new List<string>();
         static Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
+        static ScriptSourceType scriptSourceType = ScriptSourceType.None;
 
 
         internal static void Process(ref int scriptCount, ref int lineCount)
         {
-            //getting script list from one of two potential sources
+            //getting script list from one of three potential sources
             scripts = GetScripts();
 
             if (scripts.Count == 0)
@@ -26,13 +27,13 @@ namespace COM3D2.ScriptTranslationTool
 
             foreach (string script in scripts)
             {
-                StringBuilder concatStrings = new StringBuilder();
                 string scriptName = Path.GetFileName(script);
 
-                Tools.WriteLine($"\n-------- {scriptName} --------", ConsoleColor.Yellow);
-
-                //getting line list from one of two potential sources
+                //getting line list from one of three potential sources
                 var lines = GetLines(scriptName);
+                if (lines.Count == 0) { continue; }
+
+                Tools.WriteLine($"\n-------- {scriptName} --------", ConsoleColor.Yellow);
 
                 foreach (string line in lines)
                 {
@@ -203,7 +204,10 @@ namespace COM3D2.ScriptTranslationTool
 
         private static List<string> GetScripts()
         {
-            var scripts = new List<string>();
+            var scriptsSource = new List<string>();
+
+            //The program will prioritize as follow: JpCache.json > Loose .txt scripts > TranslationData.json
+            // The reason being JpCache has more likelyhood to be recent and more accurate to the game's actual content, Loose script for small translations job and lastly the database with everything ever recorded.
 
             if (Program.isSourceJpGame)
             {
@@ -211,47 +215,76 @@ namespace COM3D2.ScriptTranslationTool
 
                 if (File.Exists(jpCachePath))
                 {
-                    Console.WriteLine("Loading Jp cache");
                     jpCache = Cache.LoadJson(jpCache, jpCachePath);
-                    Tools.WriteLine($"{jpCache.Count} scripts cached", ConsoleColor.Green);
+                    Tools.WriteLine($"Loading {jpCache.Count} scripts from JpCache.json", ConsoleColor.Green);
 
-                    scripts = jpCache.Keys.ToList();
-                }
-                else
-                {
-                    Console.WriteLine("Jp cache not found.");
+                    scriptsSource = jpCache.Keys.ToList();
+                    scriptSourceType = ScriptSourceType.JpCache;
                 }
             }
             else
             {
-                scripts = Directory.EnumerateFiles(Program.japaneseScriptFolder, "*.txt*", SearchOption.AllDirectories)
+                scriptsSource = Directory.EnumerateFiles(Program.japaneseScriptFolder, "*.txt*", SearchOption.AllDirectories)
                                    .ToList();
+
+                if (scriptsSource.Any())
+                {
+                    Tools.WriteLine($"Loading {scriptsSource.Count} files from the Japanese script folder.", ConsoleColor.Green);
+                    scriptSourceType = ScriptSourceType.ScriptFile;
+                }
+                else
+                {
+                    // Get all scripts names in the database, only scripts having at least one sentence to translate are selected.
+                    scriptsSource = Db.data.Values
+                                    .Where(l => string.IsNullOrEmpty(l.GetBestTranslation()))  
+                                    .SelectMany(line => line.scriptFiles)
+                                    .Distinct()
+                                    .ToList();
+                    Tools.WriteLine($"Loading {scriptsSource} scripts from the Translation Database.", ConsoleColor.Green);
+                    Tools.WriteLine("Please note that only scripts containing untranslated sentences are selected, to avoid unecessary listing.", ConsoleColor.Green);
+                    scriptSourceType = ScriptSourceType.Database;
+                }
             }
 
-            return scripts;
+            return scriptsSource;
         }
 
         private static List<string> GetLines(string filename)
         {
             List<string> lines = new List<string>();
 
-            if (Program.isSourceJpGame)
+            if (scriptSourceType == ScriptSourceType.JpCache)
             {
                 lines = jpCache[filename];
             }
-            else
+            else if (scriptSourceType == ScriptSourceType.ScriptFile)
             {
                 //Load all scripts with the same name
                 string[] sameNameScripts = scripts.Where(f => Path.GetFileName(f) == filename).ToArray();
 
                 //merge them as one without duplicated lines.
                 foreach (string s in sameNameScripts)
-                {
                     lines.AddRange(File.ReadAllLines(s));
-                }
+            }
+            else if (scriptSourceType == ScriptSourceType.Database)
+            {
+                //Only returns lines without available translations.
+                lines = Db.data
+                          .Where(d => d.Value.scriptFiles.Contains(filename) && string.IsNullOrEmpty(d.Value.GetBestTranslation()))
+                          .Select(l => l.Key)
+                          .ToList();
             }
 
+
             return lines.Distinct().ToList();
+        }
+
+        private enum ScriptSourceType
+        {
+            None,
+            JpCache,
+            ScriptFile,
+            Database
         }
     }
 }
