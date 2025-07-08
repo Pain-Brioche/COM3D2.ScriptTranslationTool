@@ -159,7 +159,7 @@ namespace COM3D2.ScriptTranslationTool
 
             if (!isSugoiRunning && !isLLMRunning)
             {
-                Tools.WriteLine("\n Translation servers are Offline, missing sentences won't be translated", ConsoleColor.Red);
+                Tools.WriteLine("\nTranslation servers are Offline, missing sentences won't be translated", ConsoleColor.Red);
             }
 
             return (isLLMRunning || isSugoiRunning);
