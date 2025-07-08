@@ -207,8 +207,6 @@ namespace COM3D2.ScriptTranslationTool
 
         private static void LoadI2JSon()
         {
-            Tools.WriteLine("\nLoading I2 .json.", ConsoleColor.White);
-
             string[] I2json =
 {
                 "dynamic.json",
@@ -219,6 +217,8 @@ namespace COM3D2.ScriptTranslationTool
 
             if (I2json.Any(f => File.Exists(Path.Combine(Program.cacheFolder, f))))
             {
+                Tools.WriteLine("\nLoading I2 .json.", ConsoleColor.White);
+
                 foreach (string jsonFile in I2json)
                 {
                     string jsonPath = Path.Combine(Program.cacheFolder, jsonFile);
