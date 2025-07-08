@@ -34,7 +34,12 @@ namespace COM3D2.ScriptTranslationTool
 
         internal static string ToEnglish(string text)
         {
-            string TldLine = TranslateAsyncSugoi(text).Result;
+            string TldLine = "";
+
+            if (isSugoiRunning)
+                TldLine = TranslateAsyncSugoi(text).Result;
+            else if (isLLMRunning)
+                TldLine = TranslateAsyncLLM(text).Result;
 
             return TldLine;
         }
@@ -121,7 +126,7 @@ namespace COM3D2.ScriptTranslationTool
                 isSugoiRunning = false;
             }
 
-            if (!Program.isSugoiRunning)
+            if (!isSugoiRunning)
             {
                 try
                 {

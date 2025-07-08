@@ -32,9 +32,6 @@ namespace COM3D2.ScriptTranslationTool
         internal static string jpGameDataPath = "";
         internal static string engGameDataPath = "";
 
-
-        internal static bool isSugoiRunning = false;
-        internal static bool isLLMRunning = false;
         internal static bool isTranslatorRunning = false;
         internal static bool exportToi18nEx = false;
         internal static bool isSafeExport = false;

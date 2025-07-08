@@ -58,14 +58,14 @@ namespace COM3D2.ScriptTranslationTool
                     translation = currentLine.GetBestTranslation(ref color);
 
                     //translate if needed and possible
-                    if (string.IsNullOrEmpty(translation) && Program.isSugoiRunning)
+                    if (string.IsNullOrEmpty(translation) && Program.isTranslatorRunning)
                     {
                         translation = currentLine.GetTranslation(japanese);
                         color = ConsoleColor.Blue;
                     }
 
                     //In case a translation is missing and sugoi isn't running
-                    else if (string.IsNullOrEmpty(translation) && !Program.isSugoiRunning)
+                    else if (string.IsNullOrEmpty(translation) && !Program.isTranslatorRunning)
                     {
                         Tools.WriteLine($"This line wasn't found in any cache and can't be translated since sugoi isn't running", ConsoleColor.Red);
                         continue;
