@@ -2,26 +2,39 @@
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+
 
 namespace COM3D2.ScriptTranslationTool
 {
     internal class Translate
     {
-
-        private const string adress = "http://127.0.0.1:14366/";
         private static readonly HttpClient client = new HttpClient();
+        private static bool isSugoiRunning = false;
+        private static bool isLLMRunning = false;
+
+        //Sugoi stuff
+        private const string sugoiAdress = "http://127.0.0.1:14366/";
+
+        //LLM stuff
+        private static string url = "http://127.0.0.1:1234/v1/chat/completions";
+        private static string apiKey = "api_key";
+        private static string modelName = "sugoi14b";
+        private static double temp = 0.5;
 
 
         internal static ILine ToEnglish(ILine line)
         {
-            line.MachineTranslation = TranslateAsync(line.JapanesePrep).Result;
+            line.MachineTranslation = TranslateAsyncSugoi(line.JapanesePrep).Result;
 
             return line;
         }
 
         internal static string ToEnglish(string text)
         {
-            string TldLine = TranslateAsync(text).Result;
+            string TldLine = TranslateAsyncSugoi(text).Result;
 
             return TldLine;
         }
@@ -32,14 +45,14 @@ namespace COM3D2.ScriptTranslationTool
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        private static async Task<string> TranslateAsync(string str)
+        private static async Task<string> TranslateAsyncSugoi(string str)
         {
             string json = $"{{\"content\":\"{str}\",\"message\":\"translate sentences\"}}";
 
             //string json = GetJson(str);
 
             var response = await client.PostAsync(
-                adress,
+                sugoiAdress,
                 new StringContent(json, Encoding.UTF8, "application/json"));
 
             string responseString = await response.Content.ReadAsStringAsync();
@@ -49,15 +62,132 @@ namespace COM3D2.ScriptTranslationTool
             return parsedString;
         }
 
-
-        public class TranslationRequest
+        private static async Task<string> TranslateAsyncLLM(string str)
         {
-            public string Content { get; set; }
-            public string Message { get; set; }
-            public TranslationRequest(string content, string message)
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + apiKey);
+
+            //create the request in OpenAI API format
+            var chatRequest = new ChatRequest
             {
-                Content = content;
-                Message = message;
+                model = modelName,
+                messages = new List<Message>
+                {
+                    new Message { role = "user", content = str }
+                },
+                temperature = temp,
+                max_tokens = -1,
+                stream = false
+            };
+
+            var json = JsonConvert.SerializeObject(chatRequest);
+
+            //Send and Get the response
+            var response = await client.PostAsync(
+                url, 
+                new StringContent(json, Encoding.UTF8, "application/json"));
+
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            //Extract the content, that is the translated line
+            var result = GetResponseContent(responseText);
+            return result;
+        }
+
+        private static string GetResponseContent(string responseText)
+        {
+            ChatResponse parsed = JsonConvert.DeserializeObject<ChatResponse>(responseText);
+            string content = "";
+
+            if (parsed?.choices != null && parsed.choices.Count > 0)
+            {
+                content = parsed.choices[0].message?.content;
+            }
+
+            return content;
+        }
+
+        internal static async Task<bool> CheckTranslatorState()
+        {
+            try
+            {
+                await TranslateAsyncSugoi("テスト");
+                Tools.WriteLine("\nSugoi Translator is Ready", ConsoleColor.Green);
+                isSugoiRunning = true;
+            }
+            catch (Exception e)
+            {
+                //Console.WriteLine(e.Message);
+                //Console.WriteLine(e.InnerException);
+                isSugoiRunning = false;
+            }
+
+            if (!Program.isSugoiRunning)
+            {
+                try
+                {
+                    //Adding a timeout, since the server may first have to load the model to answer.
+                    var translationTask = TranslateAsyncLLM("こんにちは、世界！");
+                    var timeoutTask = Task.Delay(10000);
+
+                    var completedTask = await Task.WhenAny(translationTask, timeoutTask);
+
+                    if (completedTask == translationTask)
+                    {
+                        await translationTask;
+                        Tools.WriteLine($"\nLarge language Model {modelName} is Ready", ConsoleColor.Green);
+                        isLLMRunning = true;
+                    }
+                    else
+                    {
+                        Tools.WriteLine("\nLLM server can be reached but does not answer.", ConsoleColor.Red);
+                        isLLMRunning = false;
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    //Console.WriteLine(e.Message);
+                    //Console.WriteLine(e.InnerException);
+                    isLLMRunning = false;
+                }
+            }
+
+            if (!isSugoiRunning && !isLLMRunning)
+            {
+                Tools.WriteLine("\n Translation servers are Offline, missing sentences won't be translated", ConsoleColor.Red);
+            }
+
+            return (isLLMRunning || isSugoiRunning);
+        }
+
+
+
+        public class Message
+        {
+            public string role { get; set; }
+            public string content { get; set; }
+        }
+
+        //Request
+        public class ChatRequest
+        {
+            public string model { get; set; }
+            public List<Message> messages { get; set; }
+            public double temperature { get; set; }
+            public int max_tokens { get; set; }
+            public bool stream { get; set; }
+        }
+
+        //Response
+        public class ChatResponse
+        {
+            public List<Choice> choices { get; set; }
+            public class Choice
+            {
+                public int index { get; set; }
+                public object logprobs { get; set; }
+                public string finish_reason { get; set; }
+                public Message message { get; set; }
             }
         }
     }

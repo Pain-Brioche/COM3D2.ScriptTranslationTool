@@ -34,6 +34,8 @@ namespace COM3D2.ScriptTranslationTool
 
 
         internal static bool isSugoiRunning = false;
+        internal static bool isLLMRunning = false;
+        internal static bool isTranslatorRunning = false;
         internal static bool exportToi18nEx = false;
         internal static bool isSafeExport = false;
         internal static bool isExportBson = true;
@@ -83,8 +85,8 @@ namespace COM3D2.ScriptTranslationTool
             Console.ResetColor();
 
 
-            // Checking if sugoi translator is ready
-            isSugoiRunning = Tools.CheckTranslatorState();
+            // Checking if any translator is ready
+            isTranslatorRunning = Translate.CheckTranslatorState().Result;
 
             // Opening option menu loop
             OptionMenu();
@@ -128,7 +130,7 @@ namespace COM3D2.ScriptTranslationTool
                 if ((key.Key == ConsoleKey.D7) || (key.Key == ConsoleKey.NumPad7)) { JpScriptExtraction.ExtractJapanese(isSourceJpGame); }
                 if ((key.Key == ConsoleKey.D8) || (key.Key == ConsoleKey.NumPad8)) { EngScriptExtraction.ExtractOfficial(isSourceEngGame); }
                 if ((key.Key == ConsoleKey.D9) || (key.Key == ConsoleKey.NumPad9)) { UITranslation.Process(); }
-                //if ((key.Key == ConsoleKey.D0) || (key.Key == ConsoleKey.NumPad0)) { Cache.TestZst(); }
+                //if ((key.Key == ConsoleKey.D0) || (key.Key == ConsoleKey.NumPad0)) { Translate.TranslateAsyncLLM(); }
 
 
                 Console.ResetColor();

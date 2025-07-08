@@ -47,27 +47,6 @@ namespace COM3D2.ScriptTranslationTool
             return formatedLine;
         }
 
-        /// <summary>
-        /// Check if sugoi translator is up and running
-        /// </summary>
-        internal static bool CheckTranslatorState()
-        {
-            bool isRunning;
-            ILine test = new ScriptLine("test", "テスト");
-            try
-            {
-                Translate.ToEnglish(test);
-                Tools.WriteLine("\nSugoi Translator is Ready", ConsoleColor.Green);
-                isRunning = true;
-            }
-            catch (Exception)
-            {
-                Tools.WriteLine("\nSugoi Translator is Offline, uncached sentences won't be translated", ConsoleColor.Red);
-                isRunning= false;
-            }
-            return isRunning;
-        }
-
 
         /// <summary>
         /// Recover config from file
@@ -149,6 +128,7 @@ namespace COM3D2.ScriptTranslationTool
             Console.ResetColor();
         }
     }
+
     internal static class Export
     {
         /// <summary>

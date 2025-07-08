@@ -313,10 +313,6 @@ namespace COM3D2.ScriptTranslationTool
             return dictionary;
         }
 
-
-
-
-
         public static void TestZst()
         {
             //cleaning now useless translation cache
