@@ -19,14 +19,11 @@ namespace COM3D2.ScriptTranslationTool
             //getting script list from one of three potential sources
             scripts = GetScripts();
 
-            if (scripts.Count == 0)
-            {
-                Tools.WriteLine("No Scripts or Cache found, Translation Aborted", ConsoleColor.Red);
-                Program.OptionMenu();
-            }
-
             foreach (string script in scripts)
             {
+                scriptCount++;
+                Console.Title = $"Processing ({scriptCount} out of {scripts.Count} scripts)";
+
                 string scriptName = Path.GetFileName(script);
 
                 //getting line list from one of three potential sources
@@ -81,8 +78,6 @@ namespace COM3D2.ScriptTranslationTool
                     //Display final result
                     Tools.WriteLine(translation, color);
                 }
-
-                Console.Title = $"Processing ({scriptCount} out of {scripts.Count} scripts)";
             }
 
             if (Program.exportToi18nEx)
@@ -154,15 +149,17 @@ namespace COM3D2.ScriptTranslationTool
 
             // Get all scripts names in the database
             IEnumerable<string> scriptList = Db.data.Values
-                                      .SelectMany(line => line.scriptFiles)
-                                      .Distinct();                                      
+                                               .SelectMany(line => line.scriptFiles)
+                                               .Distinct();
+
+            Console.WriteLine($"{scriptList.Count()} found during GetBytesDictionary");
 
             //get all Japanese and English for each script and encode them to UTF8 to add to the bson dictionary
             foreach (string script in scriptList)
             {
                 IEnumerable<string> lines = Db.data
-                                           .Where(d => d.Value.scriptFiles.Contains(script))
-                                           .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation()}");
+                                              .Where(d => d.Value.scriptFiles.Contains(script))
+                                              .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation()}");
 
                 //Adding back subtitles
                 var subs = GetSubtitles(script);
@@ -207,7 +204,7 @@ namespace COM3D2.ScriptTranslationTool
             var scriptsSource = new List<string>();
 
             //The program will prioritize as follow: JpCache.json > Loose .txt scripts > TranslationData.json
-            // The reason being JpCache has more likelyhood to be recent and more accurate to the game's actual content, Loose script for small translations job and lastly the database with everything ever recorded.
+            //The reason being JpCache has more likelyhood to be recent and more accurate to the game's actual content, Loose script for small translations job and lastly the database with everything ever recorded.
 
             if (Program.isSourceJpGame)
             {
@@ -229,7 +226,7 @@ namespace COM3D2.ScriptTranslationTool
 
                 if (scriptsSource.Any())
                 {
-                    Tools.WriteLine($"Loading {scriptsSource.Count} files from the Japanese script folder.", ConsoleColor.Green);
+                    Tools.WriteLine($"Loading {scriptsSource.Count()} files from the Japanese script folder.", ConsoleColor.Green);
                     scriptSourceType = ScriptSourceType.ScriptFile;
                 }
                 else

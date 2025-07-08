@@ -100,7 +100,7 @@ namespace COM3D2.ScriptTranslationTool
                     Tools.Write(" => ", ConsoleColor.Yellow);
 
                     //Translate if needed/possible
-                    if (Program.isSugoiRunning && (string.IsNullOrEmpty(currentLine.English) || (Program.forcedTranslation && string.IsNullOrEmpty(currentLine.MachineTranslation))))
+                    if (Program.isTranslatorRunning && (string.IsNullOrEmpty(currentLine.English) || (Program.forcedTranslation && string.IsNullOrEmpty(currentLine.MachineTranslation))))
                     {
                         currentLine.GetTranslation();
 

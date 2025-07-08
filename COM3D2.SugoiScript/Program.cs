@@ -91,8 +91,7 @@ namespace COM3D2.ScriptTranslationTool
             int scriptCount = 0;
             int lineCount = 0;
 
-            if (scriptsNb > 0 || isSourceJpGame)
-                ScriptTranslation.Process(ref scriptCount, ref lineCount);
+            ScriptTranslation.Process(ref scriptCount, ref lineCount);
 
             //if (UInb > 0) { UITranslation.Process(); }
 
