@@ -48,10 +48,11 @@ namespace COM3D2.ScriptTranslationTool
                     Line currentLine = Db.GetLine(japanese);
 
                     //Updating the script name List
-                    Db.Update(japanese, scriptFile: scriptName);
+                    if (scriptSourceType == ScriptSourceType.JpCache)
+                        Db.Update(japanese, scriptFile: scriptName);
 
 
-                    //Get best translation possible Manual > Official > Machine, the database isn't supposed to have empty entries so it should always return one.
+                    //Get best translation possible Manual > Official > Machine.
                     translation = currentLine.GetBestTranslation(ref color);
 
                     //translate if needed and possible
@@ -222,23 +223,24 @@ namespace COM3D2.ScriptTranslationTool
             else
             {
                 scriptsSource = Directory.EnumerateFiles(Program.japaneseScriptFolder, "*.txt*", SearchOption.AllDirectories)
-                                   .ToList();
+                                         .ToList();
 
                 if (scriptsSource.Any())
                 {
-                    Tools.WriteLine($"Loading {scriptsSource.Count()} files from the Japanese script folder.", ConsoleColor.Green);
+                    Tools.WriteLine($"Loading {scriptsSource.Count} files from the Japanese script folder.", ConsoleColor.Green);
                     scriptSourceType = ScriptSourceType.ScriptFile;
                 }
                 else
                 {
                     // Get all scripts names in the database, only scripts having at least one sentence to translate are selected.
-                    scriptsSource = Db.data.Values
-                                    .Where(l => string.IsNullOrEmpty(l.GetBestTranslation()))  
-                                    .SelectMany(line => line.scriptFiles)
-                                    .Distinct()
-                                    .ToList();
-                    Tools.WriteLine($"Loading {scriptsSource} scripts from the Translation Database.", ConsoleColor.Green);
+                    Tools.WriteLine($"Loading scripts from the Translation Database.", ConsoleColor.Green);
                     Tools.WriteLine("Please note that only scripts containing untranslated sentences are selected, to avoid unecessary listing.", ConsoleColor.Green);
+                    scriptsSource = Db.data.Values
+                                      .Where(l => string.IsNullOrEmpty(l.GetBestTranslation()))  
+                                      .SelectMany(line => line.scriptFiles)
+                                      .Distinct()
+                                      .ToList();
+
                     scriptSourceType = ScriptSourceType.Database;
                 }
             }
