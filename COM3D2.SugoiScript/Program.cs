@@ -34,7 +34,6 @@ namespace COM3D2.ScriptTranslationTool
         internal static string engGameDataPath = "";
 
         internal static bool isTranslatorRunning = false;
-        internal static bool exportToi18nEx = false;
         internal static bool isSafeExport = false;
         internal static bool isExportBson = true;
         internal static bool moveFinishedRawScript = false;
@@ -125,10 +124,10 @@ namespace COM3D2.ScriptTranslationTool
             {
                 if ((key.Key == ConsoleKey.D1) || (key.Key == ConsoleKey.NumPad1)) { isSourceJpGame = !isSourceJpGame; }
                 if ((key.Key == ConsoleKey.D2) || (key.Key == ConsoleKey.NumPad2)) { isSourceEngGame = !isSourceEngGame; }
-                if ((key.Key == ConsoleKey.D3) || (key.Key == ConsoleKey.NumPad3)) { exportToi18nEx = !exportToi18nEx; }
+                if ((key.Key == ConsoleKey.D3) || (key.Key == ConsoleKey.NumPad3)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 3); }
                 if ((key.Key == ConsoleKey.D4) || (key.Key == ConsoleKey.NumPad4)) { isSafeExport = !isSafeExport; }
                 if ((key.Key == ConsoleKey.D5) || (key.Key == ConsoleKey.NumPad5)) { forcedTranslation = !forcedTranslation; }
-                if ((key.Key == ConsoleKey.D6) || (key.Key == ConsoleKey.NumPad6)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 3); }
+                //if ((key.Key == ConsoleKey.D6) || (key.Key == ConsoleKey.NumPad6)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 3); }
                 if ((key.Key == ConsoleKey.D7) || (key.Key == ConsoleKey.NumPad7)) { JpScriptExtraction.ExtractJapanese(isSourceJpGame); }
                 if ((key.Key == ConsoleKey.D8) || (key.Key == ConsoleKey.NumPad8)) { EngScriptExtraction.ExtractOfficial(isSourceEngGame); }
                 if ((key.Key == ConsoleKey.D9) || (key.Key == ConsoleKey.NumPad9)) { UITranslation.Process(); }
@@ -138,10 +137,10 @@ namespace COM3D2.ScriptTranslationTool
                 Console.ResetColor();
                 Console.Write($" 1. Japanese Script Source: "); Tools.WriteLine(isSourceJpGame ? "JP Game .arc" : "Database", ConsoleColor.Blue);
                 Console.Write($" 2. English Script Source: "); Tools.WriteLine(isSourceEngGame ? "ENG Game .arc" : "Script Folder", ConsoleColor.Blue);
-                Console.Write($" 3. Export to i18nEx: "); Tools.WriteLine(exportToi18nEx.ToString(), ConsoleColor.Blue);
+                Console.Write($" 3. Export as: "); Tools.WriteLine(currentExport.ToString(), ConsoleColor.Blue);
                 Console.Write($" 4. Export with official translation: "); Tools.WriteLine((!isSafeExport).ToString(), ConsoleColor.Blue);
                 Console.Write($" 5. Forced translation: "); Tools.WriteLine(forcedTranslation.ToString(), ConsoleColor.Blue);
-                Console.Write($" 6. Export as: "); Tools.WriteLine(currentExport.ToString(), ConsoleColor.Blue);
+                
                 Console.Write($" 7. Build/Update the japanese cache. Source: "); Tools.WriteLine($"{(isSourceJpGame ? jpGameDataPath : japaneseScriptFolder)}", ConsoleColor.Blue);
                 Console.Write($" 8. Build/Update the official translation cache. Source: "); Tools.WriteLine($"{(isSourceEngGame ? engGameDataPath : englishScriptFolder)}", ConsoleColor.Blue);
                 Console.Write($" 9. Translate UI .csv");
@@ -288,6 +287,7 @@ namespace COM3D2.ScriptTranslationTool
 
         internal enum ExportFormat
         {
+            None,
             Txt,
             Bson,
             Zst
