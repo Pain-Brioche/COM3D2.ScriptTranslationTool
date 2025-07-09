@@ -174,8 +174,7 @@ namespace COM3D2.ScriptTranslationTool
             }
 
             return byteDictionary;
-        }
-         
+        }         
 
         //The method reviewed and fixed by copilot, can't take credit for this linq it's more complicated than it looks.
         private static Dictionary<string, byte[]> GetBytesDictionary()

@@ -69,7 +69,11 @@ namespace COM3D2.ScriptTranslationTool
 
         private static async Task<string> TranslateAsyncLLM(string str)
         {
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + apiKey);
+
+            if (!client.DefaultRequestHeaders.Contains("Authorization"))
+            {
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + apiKey);
+            }            
 
             //create the request in OpenAI API format
             var chatRequest = new ChatRequest
