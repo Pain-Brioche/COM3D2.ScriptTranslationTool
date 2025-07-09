@@ -25,7 +25,7 @@ namespace COM3D2.ScriptTranslationTool
             }
         }
 
-        internal static void Add(string japanese, string translation, TlType type, string scriptFile = "", string csvFile = "")
+        internal static void Add(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "")
         { 
             //All Japanese sentences should be trimmed and obviously not empty
             japanese = japanese.Trim();
@@ -38,7 +38,7 @@ namespace COM3D2.ScriptTranslationTool
             Update(japanese, translation, type, scriptFile, csvFile);
         }
 
-        internal static void Update(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "")
+        private static void Update(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "")
         {
             japanese = japanese.Trim();
 

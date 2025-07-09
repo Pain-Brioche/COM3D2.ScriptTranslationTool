@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using Newtonsoft.Json;
+using System.Globalization;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -61,8 +62,11 @@ namespace COM3D2.ScriptTranslationTool
             int scriptsNb = Directory.EnumerateFiles(japaneseScriptFolder, "*.*", SearchOption.AllDirectories).Count(f => Path.GetExtension(f) == ".txt");
             int UInb = Directory.EnumerateFiles(japaneseUIFolder, "*.csv", SearchOption.AllDirectories).Count();
 
-            // Loading the translation database and counting content
+            //Loading the translation database and counting content
             LoadDatabase();
+
+            //Loading JpCache.json into the database
+            LoadJpCache();
 
             //Cache system is considered legacy, this is only to load pre-existing cache files into the database.
             LoadLegacyCache();
@@ -130,7 +134,7 @@ namespace COM3D2.ScriptTranslationTool
 
 
                 Console.ResetColor();
-                Console.Write($" 1. Japanese Script Source: "); Tools.WriteLine(isSourceJpGame ? "JP Game .arc" : "Script Folder", ConsoleColor.Blue);
+                Console.Write($" 1. Japanese Script Source: "); Tools.WriteLine(isSourceJpGame ? "JP Game .arc" : "Database", ConsoleColor.Blue);
                 Console.Write($" 2. English Script Source: "); Tools.WriteLine(isSourceEngGame ? "ENG Game .arc" : "Script Folder", ConsoleColor.Blue);
                 Console.Write($" 3. Export to i18nEx: "); Tools.WriteLine(exportToi18nEx.ToString(), ConsoleColor.Blue);
                 Console.Write($" 4. Export with official translation: "); Tools.WriteLine((!isSafeExport).ToString(), ConsoleColor.Blue);
@@ -167,9 +171,10 @@ namespace COM3D2.ScriptTranslationTool
 
             Tools.WriteLine("Loading Translation Data.", ConsoleColor.White);
             Db.LoadFromJson();
-            Console.WriteLine($"Official Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Official))}");
-            Console.WriteLine($"Manual Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Manual))}");
-            Console.WriteLine($"Machine Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Machine))}");
+            Console.WriteLine($"Total number of Japanese lines: {Db.data.Count.ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Official Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Official)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Manual Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Manual)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Machine Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Machine)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
         }
 
         private static void LoadLegacyCache()
@@ -251,6 +256,31 @@ namespace COM3D2.ScriptTranslationTool
                 Db.SaveToJson();
 
                 Console.WriteLine("Officiel .json have been loaded and saved inside the database, you can delete them from the cache folder.");
+            }
+        }
+
+        private static void LoadJpCache()
+        {
+            Dictionary<string, List<string>> jpCache = new Dictionary<string, List<string>>();
+            string jpCachePath = Path.Combine(cacheFolder, jpCacheFile);
+
+
+            if (File.Exists(jpCachePath))
+            {
+                Tools.WriteLine("Loading JpCache.json.", ConsoleColor.Green);
+                jpCache = Cache.LoadJson(jpCache, jpCachePath);
+
+                foreach (string key in jpCache.Keys)
+                {
+                    foreach (string value in jpCache[key])
+                    {
+                        Db.Add(value, scriptFile: key);
+                    }
+                }
+                Tools.WriteLine($"{jpCache.Count} scripts loaded from JpCache.json.", ConsoleColor.Green);
+                Db.SaveToJson();
+
+                Console.WriteLine("JpCache.json has been loaded and saved inside the database.");
             }
         }
     }

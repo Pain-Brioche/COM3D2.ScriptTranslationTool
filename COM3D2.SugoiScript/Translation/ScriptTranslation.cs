@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.PerformanceData;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -46,11 +48,6 @@ namespace COM3D2.ScriptTranslationTool
                     Tools.Write(" => ", ConsoleColor.Yellow);
 
                     Line currentLine = Db.GetLine(japanese);
-
-                    //Updating the script name List
-                    if (scriptSourceType == ScriptSourceType.JpCache)
-                        Db.Update(japanese, scriptFile: scriptName);
-
 
                     //Get best translation possible Manual > Official > Machine.
                     translation = currentLine.GetBestTranslation(ref color);
@@ -144,8 +141,11 @@ namespace COM3D2.ScriptTranslationTool
             Export.SaveZstdMsgPack(byteDictionary, zstPath);
         }
 
-        private static Dictionary<string, byte[]> GetBytesDictionary()
+        //Old code by myself, not efficient, getting lines takes forever
+        private static Dictionary<string, byte[]> GetBytesDictionary_OLD()
         {
+
+            int count = 0;
             Dictionary<string, byte[]> byteDictionary = new Dictionary<string, byte[]>();
 
             // Get all scripts names in the database
@@ -161,6 +161,8 @@ namespace COM3D2.ScriptTranslationTool
                 IEnumerable<string> lines = Db.data
                                               .Where(d => d.Value.scriptFiles.Contains(script))
                                               .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation()}");
+                count++;
+                Console.Title = $"{count} out of {scriptList.Count()}";
 
                 //Adding back subtitles
                 var subs = GetSubtitles(script);
@@ -169,6 +171,45 @@ namespace COM3D2.ScriptTranslationTool
 
                 byte[] bytes = Encoding.UTF8.GetBytes(string.Join(Environment.NewLine, lines).Trim());
                 byteDictionary.Add(script, bytes);
+            }
+
+            return byteDictionary;
+        }
+         
+
+        //The method reviewed and fixed by copilot, can't take credit for this linq it's more complicated than it looks.
+        private static Dictionary<string, byte[]> GetBytesDictionary()
+        {
+
+            //That's why I don't like using AI, it's supposed to get all scripts and corresponding lines with sentences, but I don't understand it...
+            var scriptGroups = Db.data
+                .SelectMany(kvp => kvp.Value.scriptFiles.Select(sf => new
+                {
+                    Script = sf,
+                    Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                }))
+                .GroupBy(x => x.Script);
+
+            int count = 0;
+            int total = scriptGroups.Count();
+            var byteDictionary = new Dictionary<string, byte[]>();
+            var culture = CultureInfo.GetCultureInfo("fr-FR");
+
+            foreach (var group in scriptGroups)
+            {
+                string script = group.Key;
+                IEnumerable<string> lines = group.Select(x => x.Line);
+
+                // Add enventual subtitles.
+                var subs = GetSubtitles(script);
+                if (subs.Any()) lines = lines.Concat(subs);
+
+                // Convert to UTF-8
+                byte[] bytes = Encoding.UTF8.GetBytes(string.Join(Environment.NewLine, lines).Trim());
+                byteDictionary.Add(script, bytes);
+
+                count++;
+                Console.Title = $"{count.ToString("N0", culture)} sur {total.ToString("N0", culture)}";
             }
 
             return byteDictionary;
