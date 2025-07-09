@@ -147,7 +147,7 @@ namespace COM3D2.ScriptTranslationTool
                 Console.Write("\nPress Numbers for options or Enter to start translating: ");
 
                 key = Console.ReadKey();
-                Console.SetCursorPosition(0, Console.CursorTop - 9);
+                Console.SetCursorPosition(0, Console.CursorTop - 8);
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
@@ -157,8 +157,7 @@ namespace COM3D2.ScriptTranslationTool
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
-                Console.Write(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, Console.CursorTop - 9);
+                Console.SetCursorPosition(0, Console.CursorTop - 8);
             }
         }
 

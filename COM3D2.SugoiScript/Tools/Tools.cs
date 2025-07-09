@@ -67,7 +67,7 @@ namespace COM3D2.ScriptTranslationTool
                 Program.translatedScriptFolder = ConfigurationManager.AppSettings.Get("AlreadyTranslatedScriptFolder");
 
                 Program.moveFinishedRawScript = Convert.ToBoolean(ConfigurationManager.AppSettings.Get("MoveTranslated"));
-                Program.exportToi18nEx = Convert.ToBoolean(ConfigurationManager.AppSettings.Get("ExportToi18nEx"));
+                //Program.exportToi18nEx = Convert.ToBoolean(ConfigurationManager.AppSettings.Get("ExportToi18nEx"));
 
                 //getting GameData path Setting > Registry > Ask
                 if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings.Get("JPGamePath")))
