@@ -68,6 +68,36 @@ namespace COM3D2.ScriptTranslationTool
             data.Remove(japanese.Trim());
         }
 
+        internal static void ClearMachineTranslations()
+        {
+            Tools.WriteLine("Are You sure? This will delete ALL machine translation in the database", ConsoleColor.Red);
+            Tools.WriteLine("A backup will be created.", ConsoleColor.Red);
+            Tools.Write("Enter \"YES\" to proceed, anything else to abort: ", ConsoleColor.Red);
+            string answer = Console.ReadLine();
+
+            if (answer.ToLower() == "yes")
+            {
+                string currentTime = DateTime.Now.ToString("yyyy-MM-dd HHmmss");
+                string backupPath = $"{Program.cacheFolder}\\({currentTime})_TranslationData_Backup.json";
+                File.Move(Program.databaseFile, backupPath);
+
+                data.Values.ToList().ForEach(line => line.Machine = string.Empty);
+
+                SaveToJson();
+
+                Tools.WriteLine("Every Machine translation entries are now cleared.", ConsoleColor.Red);
+                Tools.WriteLine($"A Backup [{backupPath}] has been created", ConsoleColor.Red);
+            }
+            else
+            {
+                Tools.WriteLine("Aborted", ConsoleColor.Green);
+            }
+
+            Console.WriteLine("\n");
+            Program.OptionMenu();
+
+        }
+
         internal static void SaveToJson()
         {
             Tools.WriteLine("Saving Database...", ConsoleColor.White);
