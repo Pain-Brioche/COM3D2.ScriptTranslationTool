@@ -43,7 +43,7 @@ namespace COM3D2.ScriptTranslationTool
         internal static bool isSourceEngGame = true;
         internal static bool isIgnoreCbl = true;
 
-        internal static ExportFormat currentExport = ExportFormat.bson;
+        internal static ExportFormat currentExport = ExportFormat.Bson;
 
         static void Main()
         {
