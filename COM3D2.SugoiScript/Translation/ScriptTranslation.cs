@@ -80,13 +80,12 @@ namespace COM3D2.ScriptTranslationTool
 
             if (Program.exportToi18nEx)
             {
-                if (Program.isExportBson)
-                {
-                    ExportToBson();
-                    ExportToZst();
-                }
-                else 
+                if (Program.currentExport == Program.ExportFormat.Txt)
                     ExportToTxt();
+                else if (Program.currentExport == Program.ExportFormat.Bson)
+                    ExportToBson();
+                else if (Program.currentExport == Program.ExportFormat.Zst)
+                    ExportToZst();
             }
         }
 
