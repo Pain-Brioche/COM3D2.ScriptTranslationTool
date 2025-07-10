@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Diagnostics;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -14,15 +15,24 @@ namespace COM3D2.ScriptTranslationTool
         static List<string> scripts = new List<string>();
         static Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
         static ScriptSourceType scriptSourceType = ScriptSourceType.None;
+        static int autoSaveTimer = 12 * 60 *1000;
+        static Stopwatch stopwatch;
 
 
         internal static void Process(ref int scriptCount, ref int lineCount)
         {
+            //Starting the timer for the AutoSave
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+
             //getting script list from one of three potential sources
             scripts = GetScripts();
 
             foreach (string script in scripts)
             {
+                CheckTimer();
+
                 scriptCount++;
                 Console.Title = $"Processing ({scriptCount} out of {scripts.Count} scripts)";
 
@@ -313,6 +323,16 @@ namespace COM3D2.ScriptTranslationTool
 
 
             return lines.Distinct().ToList();
+        }
+
+        private static void CheckTimer()
+        {
+            if (stopwatch.ElapsedMilliseconds > autoSaveTimer)
+            {
+                Console.WriteLine("\n===========================================================");
+                Db.SaveToJson();
+                Console.WriteLine("\n===========================================================");
+            }
         }
 
         private enum ScriptSourceType

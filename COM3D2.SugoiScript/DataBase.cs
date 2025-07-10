@@ -86,7 +86,7 @@ namespace COM3D2.ScriptTranslationTool
                 SaveToJson();
 
                 Tools.WriteLine("Every Machine translation entries are now cleared.", ConsoleColor.Red);
-                Tools.WriteLine($"A Backup [{backupPath}] has been created", ConsoleColor.Red);
+                Tools.WriteLine($"{backupPath} has been created", ConsoleColor.Red);
             }
             else
             {
@@ -115,6 +115,11 @@ namespace COM3D2.ScriptTranslationTool
                 var json = File.ReadAllText(Program.databaseFile);
                 data = JsonConvert.DeserializeObject<Dictionary<string, Line>>(json);
             }
+        }
+
+        internal static void AutoSave()
+        {
+
         }
     }
 
