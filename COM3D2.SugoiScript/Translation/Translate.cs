@@ -89,16 +89,24 @@ namespace COM3D2.ScriptTranslationTool
             };
 
             var json = JsonConvert.SerializeObject(chatRequest);
+            string result = "";
+            try
+            {
+                //Send and Get the response
+                var response = await client.PostAsync(
+                    url,
+                    new StringContent(json, Encoding.UTF8, "application/json"));
 
-            //Send and Get the response
-            var response = await client.PostAsync(
-                url, 
-                new StringContent(json, Encoding.UTF8, "application/json"));
+                var responseText = await response.Content.ReadAsStringAsync();
 
-            var responseText = await response.Content.ReadAsStringAsync();
+                //Extract the content, that is the translated line
+                result = GetResponseContent(responseText);
+            }
+            catch (Exception ex) 
+            {
+                //eventual handling of the exception, but I'll likely just leave it as is.
+            }
 
-            //Extract the content, that is the translated line
-            var result = GetResponseContent(responseText);
             return result;
         }
 
