@@ -150,6 +150,7 @@ namespace COM3D2.ScriptTranslationTool
 
 
 
+
         //returns the first best translation available, otherwise returns an empty string.
         internal string GetBestTranslation(ref ConsoleColor color)
         {

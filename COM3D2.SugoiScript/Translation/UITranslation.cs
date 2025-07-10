@@ -5,179 +5,100 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using System.ComponentModel;
 
 namespace COM3D2.ScriptTranslationTool
 {
     internal static class UITranslation
     {
-        internal static void Process()
+        internal static void Process(ref int csvCount, ref int termCount)
         {
-            Dictionary<string, string[]> tempTermCache = new Dictionary<string, string[]>();
-
-            //trying to load official .json
-            string[] jsonFiles =
-            {
-                "dynamic.json",
-                "dance_subtitle.json",
-                "parts.json",
-                "yotogi.json"
-            };
-
-            foreach (string jsonFile in jsonFiles)
-            {
-                string jsonPath = Path.Combine(Program.cacheFolder, jsonFile);
-
-                if (!File.Exists(jsonPath)) continue;
-
-                string jsonData = File.ReadAllText(jsonPath);
-
-                var jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
-
-                var translationsTerms = JsonConvert.DeserializeObject<TermDatas>(jsonData, jsonSerializerSettings);
-
-                Console.WriteLine($"{jsonFile} contains {translationsTerms.mTerms.Count} terms.");
-
-                foreach ( var termData in translationsTerms.mTerms )
-                {
-                    if (!tempTermCache.ContainsKey(termData.Term))
-                        tempTermCache.Add(termData.Term, termData.Languages);
-                }
-                
-                /*                if (File.Exists(jsonPath) && !Program.isSafeExport)
-                                    {
-                                        string[] strings = File.ReadAllLines(jsonPath);
-                                        for (int i = 0; i < strings.Length; i++)
-                                        {
-                                            if (strings[i].Contains("\"Languages\":"))
-                                            {
-                                                string jp = Regex.Replace(strings[i + 1].Replace("\"", "").Trim().Trim(','), @"\s+", " ");
-                                                string eng = strings[i + 2].Replace("\"", "").Trim().Trim(',');
-
-                                                if (!tempCSVCache.ContainsKey(jp) && !string.IsNullOrEmpty(jp))
-                                                {
-                                                    tempCSVCache.Add(jp, eng);
-                                                    Console.WriteLine($"Loaded translation: {jp} {eng}");
-                                                }
-                                            }
-                                        }
-                                    }*/
-            }
-
             Tools.MakeFolder(Program.i18nExUIFolder);
             IEnumerable<string> csvs = Directory.EnumerateFiles(Program.japaneseUIFolder, "*.csv*", SearchOption.AllDirectories);
-            int csvCount = 1;
             
             foreach (string csv in csvs)
             {
-                Tools.WriteLine($"\n-------- {Path.GetFileName(csv)} --------", ConsoleColor.Yellow);
+                csvCount++; 
+                Console.Title = $"Processing ({csvCount} out of {csvs.Count()} scripts)";
 
-                //reading csv files
-                List<CsvLine> csvLines = ParseCSV(csv);
+                string fileName = Path.GetFileName(csv);
 
-                //let's try to translate each line
-                for(int i = 0; i < csvLines.Count; i++)
+                Tools.WriteLine($"\n-------- {fileName} --------", ConsoleColor.Yellow);
+
+                string csvInput = File.ReadAllText(csv);
+                List<string> csvOutput = new List<string>();
+
+                using (var csvReader = new StringReader(csvInput))
+                using (var parser = new NotVisualBasic.FileIO.CsvTextFieldParser(csvReader))
                 {
-                    Console.Title = $"Processing: line {i}/{csvLines.Count} from {csvCount}/{csvs.Count()} UI files";
+                    //First line is always the header, so adding it back as is.
+                    csvOutput.Add(string.Join(",", parser.ReadFields()));
 
-                    var currentLine = csvLines[i];
-
-                    //Some entries may be empty...
-                    if (String.IsNullOrWhiteSpace(currentLine.Japanese))
-                        continue;
-
-                    //retrieve from Cache
-                    string category = Path.GetFileNameWithoutExtension(csv);
-                    string key = currentLine.Key;
-                    string term = $"{category}/{key}";
-                    if (tempTermCache.ContainsKey(term))
+                    //While EoF isn't reached.
+                    while (!parser.EndOfData)
                     {
-                        currentLine.OfficialTranslation = tempTermCache[term][1];
-                        currentLine.Color = ConsoleColor.Green;
-                    }
+                        termCount++;
 
-                    Console.Write(currentLine.Japanese);
-                    Tools.Write(" => ", ConsoleColor.Yellow);
+                        //We parse the line
+                        string[] values = parser.ReadFields();
 
-                    //Translate if needed/possible
-                    if (Program.isTranslatorRunning && (string.IsNullOrEmpty(currentLine.English) || (Program.forcedTranslation && string.IsNullOrEmpty(currentLine.MachineTranslation))))
-                    {
-                        currentLine.GetTranslation();
+                        //The japanese is always the third index
+                        string japanese = values[3].Trim();
+                        if (string.IsNullOrEmpty(japanese)) continue;
 
-                        //ignore faulty returns
-                        if (currentLine.HasRepeat || currentLine.HasError)
+                        //Skip already translated entries
+                        if (!string.IsNullOrEmpty(values[4])) continue;
+
+                        string translation = string.Empty;
+                        ConsoleColor color = ConsoleColor.Gray;
+
+                        Console.Write(japanese);
+                        Tools.Write(" => ", ConsoleColor.Yellow);
+
+                        Line currentLine = Db.GetLine(japanese);
+
+                        //Get best translation possible Manual > Official > Machine.
+                        translation = currentLine.GetBestTranslation(ref color);
+
+                        //translate if needed and possible
+                        if (string.IsNullOrEmpty(translation) && Program.isTranslatorRunning)
                         {
-                            Cache.AddToError(currentLine);
+                            translation = currentLine.GetTranslation(japanese);
+                            color = ConsoleColor.Blue;
+                        }
+
+                        //In case a translation is missing and sugoi isn't running
+                        else if (string.IsNullOrEmpty(translation) && !Program.isTranslatorRunning)
+                        {
+                            Tools.WriteLine($"This line wasn't found in any cache and can't be translated since sugoi isn't running", ConsoleColor.Red);
+                            continue;
+                        }
+
+                        //Ignore faulty results
+                        if (currentLine.HasError || currentLine.HasRepeat || translation == string.Empty)
+                        {
                             Tools.WriteLine($"This line returned a faulty translation and was placed in {Program.errorFile}", ConsoleColor.Red);
                             continue;
                         }
+
+                        //Display final result
+                        Tools.WriteLine(translation, color);
+
+                        //Adding the translation to value[4] as this is the english index.
+                        values[4] = translation;
+
+                        //and those values in the csv
+                        csvOutput.Add(string.Join(",", values));
                     }
-                    else if (string.IsNullOrEmpty(currentLine.English))
-                    {
-                        Tools.WriteLine($"This line wasn't found in any cache and can't be translated since sugoi isn't running", ConsoleColor.Red);
-                        continue;
-                    }               
-
-
-                    Tools.WriteLine(currentLine.English, currentLine.Color);
-
-                    csvLines[i] = currentLine;
                 }
 
-                //Now that it's translated, let's rebuild the .csv
-
-                //Ignore empty files
-                if (csvLines.Count == 0) continue;
-
-                //Get the new pathcreate folders and write the header
+                //Get the new pathcreate folders and write the file
                 string newPath = csv.Replace("UI\\Japanese", Program.i18nExUIFolder);
                 Tools.MakeFolder(Path.GetDirectoryName(newPath));
-                File.WriteAllText(newPath, csvLines[0].ExportHeader());
-
-                //Write content
-                List<string> lines = new List<string>();
-                foreach(CsvLine line in csvLines)
-                {
-                    lines.Add(line.ExportLine());
-                }
-
-                File.AppendAllLines(newPath, lines);
+                File.AppendAllLines(newPath, csvOutput);
 
                 csvCount++;
             }
-        }
-
-        //This is using CsvTextFieldParser librabry https://github.com/22222/CsvTextFieldParser
-        private static List<CsvLine> ParseCSV(string csvFileInput)
-        {
-            List<CsvLine> csvLines = new List<CsvLine>();
-
-            string fileName = Path.GetFileName(csvFileInput);
-            string csvInput = File.ReadAllText(csvFileInput);
-
-            using (var csvReader = new StringReader(csvInput))
-            using (var parser = new NotVisualBasic.FileIO.CsvTextFieldParser(csvReader))
-            {
-                // Save header to rebuild the csv and know the number of columns.
-                string[] header = new string[0];
-                if (!parser.EndOfData)
-                {
-                    header = parser.ReadFields();
-                }
-                //commented code was here to check where csv parsing broke
-                //int i = 1;
-                while (!parser.EndOfData)
-                {
-                    //i++;
-                    //Tools.Write($" [{i}] ", ConsoleColor.DarkMagenta);
-                    var values = parser.ReadFields();
-
-                    CsvLine line = new CsvLine(fileName, header, values);
-
-                    csvLines.Add(line);
-                }
-            }
-            return csvLines;
         }
     }
 
