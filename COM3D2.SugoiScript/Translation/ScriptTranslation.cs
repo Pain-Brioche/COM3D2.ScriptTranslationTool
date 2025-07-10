@@ -332,6 +332,7 @@ namespace COM3D2.ScriptTranslationTool
                 Console.WriteLine("\n===========================================================");
                 Db.SaveToJson();
                 Console.WriteLine("\n===========================================================");
+                stopwatch.Restart();
             }
         }
 
