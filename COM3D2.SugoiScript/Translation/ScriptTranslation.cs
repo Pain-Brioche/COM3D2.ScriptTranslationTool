@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -107,25 +108,22 @@ namespace COM3D2.ScriptTranslationTool
             // Create folder to sort script files in
             ScriptManagement.CreateSortedFolders();
 
-            // Get all scripts names in the database
-            IEnumerable<string> scriptList = Db.data.Values
-                                      .SelectMany(line => line.scriptFiles)
-                                      .Distinct();                                      
-
             //for each script get the japanese lines and their translations then save as .txt
             //this export format does not support tabulations in sentences
-            foreach (string script in scriptList)
+            var scriptGroups = Db.data
+                                 .SelectMany(kvp => kvp.Value.scriptFiles.Select(sf => new
+                                 {
+                                     Script = sf,
+                                     Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                                 }))
+                                 .GroupBy(x => x.Script);
+
+            Parallel.ForEach(scriptGroups, group =>
             {
-                IEnumerable<string> lines = Db.data
-                                    .Where(d => d.Value.scriptFiles.Contains(script))
-                                    .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
-
-                //Adding back subtitles
-                var subs = GetSubtitles(script);
-                if (subs.Any()) { lines = lines.Concat(subs); }
-
-                ScriptManagement.SaveTxt(script, lines);     
-            }
+                var subs = GetSubtitles(group.Key);
+                var lines = group.Select(x => x.Line).Concat(subs).ToList();
+                ScriptManagement.SaveTxt(group.Key, lines);
+            });
         }
 
         private static void ExportToBson()

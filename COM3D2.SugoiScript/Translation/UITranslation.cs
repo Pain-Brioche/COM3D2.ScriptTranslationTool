@@ -46,6 +46,10 @@ namespace COM3D2.ScriptTranslationTool
                         string japanese = values[3].Trim();
                         if (string.IsNullOrEmpty(japanese)) continue;
 
+                        //Check for translation placeholder
+                        if (values[0] == values[4]) values[4] = "";
+
+
                         //Skip already translated entries
                         if (!string.IsNullOrEmpty(values[4])) continue;
 

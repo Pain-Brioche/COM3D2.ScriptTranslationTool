@@ -60,9 +60,6 @@ namespace COM3D2.ScriptTranslationTool
             if (moveFinishedRawScript)
                 Tools.MakeFolder(translatedScriptFolder);
 
-            int scriptsNb = Directory.EnumerateFiles(japaneseScriptFolder, "*.*", SearchOption.AllDirectories).Count(f => Path.GetExtension(f) == ".txt");
-            int UInb = Directory.EnumerateFiles(japaneseUIFolder, "*.csv", SearchOption.AllDirectories).Count();
-
 
             //Loading the translation database and counting content
             LoadDatabase();
