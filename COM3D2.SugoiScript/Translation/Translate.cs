@@ -102,7 +102,7 @@ namespace COM3D2.ScriptTranslationTool
                 //Extract the content, that is the translated line
                 result = GetResponseContent(responseText);
             }
-            catch (Exception ex) 
+            catch (Exception) 
             {
                 //eventual handling of the exception, but I'll likely just leave it as is.
             }
@@ -131,7 +131,7 @@ namespace COM3D2.ScriptTranslationTool
                 Tools.WriteLine("\nSugoi Translator is Ready", ConsoleColor.Green);
                 isSugoiRunning = true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 //Console.WriteLine(e.Message);
                 //Console.WriteLine(e.InnerException);
@@ -150,9 +150,15 @@ namespace COM3D2.ScriptTranslationTool
 
                     if (completedTask == translationTask)
                     {
-                        await translationTask;
-                        Tools.WriteLine($"\nLarge language Model {modelName} is Ready", ConsoleColor.Green);
-                        isLLMRunning = true;
+                        var result = await translationTask;
+
+                        if (!string.IsNullOrWhiteSpace(result))
+                        {
+                            Tools.WriteLine($"\nLarge language Model {modelName} is Ready", ConsoleColor.Green);
+                            isLLMRunning = true;
+                        }
+                        else
+                            isLLMRunning = false;
                     }
                     else
                     {
@@ -161,7 +167,7 @@ namespace COM3D2.ScriptTranslationTool
                     }
 
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     //Console.WriteLine(e.Message);
                     //Console.WriteLine(e.InnerException);

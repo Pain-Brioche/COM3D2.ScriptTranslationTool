@@ -116,11 +116,6 @@ namespace COM3D2.ScriptTranslationTool
                 data = JsonConvert.DeserializeObject<Dictionary<string, Line>>(json);
             }
         }
-
-        internal static void AutoSave()
-        {
-
-        }
     }
 
 

@@ -32,6 +32,9 @@ namespace COM3D2.ScriptTranslationTool
 
             foreach (string script in scripts)
             {
+                // No need to do any of this is no translation tools are running and
+                if (!Program.isTranslatorRunning && !Program.isSourceJpGame) break;
+
                 CheckTimer();
 
                 scriptCount++;
@@ -88,6 +91,8 @@ namespace COM3D2.ScriptTranslationTool
                     Tools.WriteLine(translation, color);
                 }
             }
+
+            Db.SaveToJson();
 
             if (Program.currentExport == Program.ExportFormat.Txt)
                 ExportToTxt();
