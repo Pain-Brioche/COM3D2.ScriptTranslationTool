@@ -94,6 +94,8 @@ namespace COM3D2.ScriptTranslationTool
                 ExportToBson();
             else if (Program.currentExport == Program.ExportFormat.Zst)
                 ExportToZst();
+            else if (Program.currentExport == Program.ExportFormat.JaT)
+                ExportToJaT();
             
         }
 
@@ -116,7 +118,7 @@ namespace COM3D2.ScriptTranslationTool
             {
                 IEnumerable<string> lines = Db.data
                                     .Where(d => d.Value.scriptFiles.Contains(script))
-                                    .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", "")}");
+                                    .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
 
                 //Adding back subtitles
                 var subs = GetSubtitles(script);
@@ -148,40 +150,16 @@ namespace COM3D2.ScriptTranslationTool
             Export.SaveZstdMsgPack(byteDictionary, zstPath);
         }
 
-        //Old code by myself, not efficient, getting lines takes forever
-        private static Dictionary<string, byte[]> GetBytesDictionary_OLD()
+        private static void ExportToJaT()
         {
+            Tools.MakeFolder(Program.i18nExScriptFolder);
 
-            int count = 0;
-            Dictionary<string, byte[]> byteDictionary = new Dictionary<string, byte[]>();
+            IEnumerable<string> exportLines = Db.data
+                                                .Where(s => s.Value.scriptFiles.Any())
+                                                .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
 
-            // Get all scripts names in the database
-            IEnumerable<string> scriptList = Db.data.Values
-                                               .SelectMany(line => line.scriptFiles)
-                                               .Distinct();
-
-            Console.WriteLine($"{scriptList.Count()} found during GetBytesDictionary");
-
-            //get all Japanese and English for each script and encode them to UTF8 to add to the bson dictionary
-            foreach (string script in scriptList)
-            {
-                IEnumerable<string> lines = Db.data
-                                              .Where(d => d.Value.scriptFiles.Contains(script))
-                                              .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation()}");
-                count++;
-                Console.Title = $"{count} out of {scriptList.Count()}";
-
-                //Adding back subtitles
-                var subs = GetSubtitles(script);
-                if (subs.Any()) {lines = lines.Concat(subs);}
-
-
-                byte[] bytes = Encoding.UTF8.GetBytes(string.Join(Environment.NewLine, lines).Trim());
-                byteDictionary.Add(script, bytes);
-            }
-
-            return byteDictionary;
-        }         
+            File.WriteAllLines($"{Program.i18nExScriptFolder}\\JaTScripts.txt", exportLines);
+        }
 
         //The method reviewed and fixed by copilot, can't take credit for this linq it's more complicated than it looks.
         private static Dictionary<string, byte[]> GetBytesDictionary()

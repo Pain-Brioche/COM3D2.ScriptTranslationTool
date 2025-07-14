@@ -38,7 +38,7 @@ namespace COM3D2.ScriptTranslationTool
         internal static bool isExportBson = true;
         internal static bool moveFinishedRawScript = false;
         internal static bool forcedTranslation = false;
-        internal static bool isSourceJpGame = true;
+        internal static bool isSourceJpGame = false;
         internal static bool isSourceEngGame = true;
         internal static bool isIgnoreCbl = true;
 
@@ -128,7 +128,7 @@ namespace COM3D2.ScriptTranslationTool
             {
                 if ((key.Key == ConsoleKey.D1) || (key.Key == ConsoleKey.NumPad1)) { isSourceJpGame = !isSourceJpGame; }
                 if ((key.Key == ConsoleKey.D2) || (key.Key == ConsoleKey.NumPad2)) { isSourceEngGame = !isSourceEngGame; }
-                if ((key.Key == ConsoleKey.D3) || (key.Key == ConsoleKey.NumPad3)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 3); }
+                if ((key.Key == ConsoleKey.D3) || (key.Key == ConsoleKey.NumPad3)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 5); }
                 if ((key.Key == ConsoleKey.D4) || (key.Key == ConsoleKey.NumPad4)) { isSafeExport = !isSafeExport; }
                 //if ((key.Key == ConsoleKey.D5) || (key.Key == ConsoleKey.NumPad5)) { forcedTranslation = !forcedTranslation; }
                 //if ((key.Key == ConsoleKey.D6) || (key.Key == ConsoleKey.NumPad6)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 3); }
@@ -292,7 +292,8 @@ namespace COM3D2.ScriptTranslationTool
             None,
             Txt,
             Bson,
-            Zst
+            Zst,
+            JaT
         }
     }
 }

@@ -253,6 +253,12 @@ namespace COM3D2.ScriptTranslationTool
             {
                 this.HasError = true;
             }
+
+            if (HasError || HasRepeat || string.IsNullOrEmpty(Machine))
+            {
+                File.AppendAllText("Translation Errors.txt", $"JP:{Japanese} => {Machine}");
+                Machine = "";
+            }
         }
 
         public string GetTranslation(string japanese)
