@@ -230,15 +230,19 @@ namespace COM3D2.ScriptTranslationTool
 
 
             // check for repeating characters
-            Match matchChar = Regex.Match(Machine, @"(\w)\1{15,}");
-            if (matchChar.Success)
+            if (Regex.IsMatch(Machine, @"(\w)\1{15,}"))
             {
                 HasRepeat = true;
             }
 
-            // check for repating words
-            Match matchWord = Regex.Match(Machine, @"(?<word>\w+)(-(\k<word>)){5,}");
-            if (matchWord.Success)
+            // check for repeating words
+            if (Regex.IsMatch(Machine, @"(?<word>\w+)(-(\k<word>)){5,}"))
+            {
+                HasRepeat = true;
+            }
+
+            // check for repeating tabs, usually because of LLM errors
+            if (Regex.IsMatch(Machine, @"\t{2,}"))
             {
                 HasRepeat = true;
             }
