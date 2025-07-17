@@ -209,49 +209,49 @@ namespace COM3D2.ScriptTranslationTool
         internal void CleanPost()
         {
             // replace MUKU by the corresponding [HF] tags
-            if (this.HasTag)
+            if (HasTag)
             {
                 //line.English = Regex.Replace(line.English, @"the tag placeholder", "TAGPLACEHOLDER", RegexOptions.IgnoreCase);
 
                 Regex rx = new Regex(@"\bMUKU\b", RegexOptions.IgnoreCase);
 
-                for (int i = 0; i < this.Tags.Count; i++)
+                for (int i = 0; i < Tags.Count; i++)
                 {
-                    this.Machine = rx.Replace(this.Machine, this.Tags[i], 1);
+                    Machine = rx.Replace(Machine, Tags[i], 1);
                 }
 
                 // remove "the" from before [HF] tags
-                this.Machine = this.Machine.Replace("the [", "[");
-                this.Machine = this.Machine.Replace("The [", "[");
+                Machine = Machine.Replace("the [", "[");
+                Machine = Machine.Replace("The [", "[");
             }
 
             // unk ? Looks like symbols the translator doesn't know how to handle
-            this.Machine = this.Machine.Replace("<unk>", "");
+            Machine = Machine.Replace("<unk>", "");
 
 
             // check for repeating characters
-            Match matchChar = Regex.Match(this.Machine, @"(\w)\1{15,}");
+            Match matchChar = Regex.Match(Machine, @"(\w)\1{15,}");
             if (matchChar.Success)
             {
-                this.HasRepeat = true;
+                HasRepeat = true;
             }
 
             // check for repating words
-            Match matchWord = Regex.Match(this.Machine, @"(?<word>\w+)(-(\k<word>)){5,}");
+            Match matchWord = Regex.Match(Machine, @"(?<word>\w+)(-(\k<word>)){5,}");
             if (matchWord.Success)
             {
-                this.HasRepeat = true;
+                HasRepeat = true;
             }
 
             // check for server bad request
-            if (this.Machine.Contains("400 Bad Request"))
+            if (Machine.Contains("400 Bad Request"))
             {
-                this.HasError = true;
+                HasError = true;
             }
 
             if (HasError || HasRepeat || string.IsNullOrEmpty(Machine))
             {
-                File.AppendAllText("Translation Errors.txt", $"JP:{Japanese} => {Machine}");
+                File.AppendAllText("\nTranslation Errors.txt", $"JP:{Japanese} => {Machine}");
                 Machine = "";
             }
         }

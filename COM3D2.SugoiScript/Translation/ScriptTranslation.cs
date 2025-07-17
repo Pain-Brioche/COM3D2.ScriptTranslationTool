@@ -16,9 +16,9 @@ namespace COM3D2.ScriptTranslationTool
     {
         static Dictionary<string, List<string>> jpCache = new Dictionary<string, List<string>>();
         static List<string> scripts = new List<string>();
-        static Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
+        static readonly Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
         static ScriptSourceType scriptSourceType = ScriptSourceType.None;
-        static int autoSaveTimer = 12 * 60 *1000;
+        static readonly int autoSaveTimer = 12 * 60 * 1000;
         static Stopwatch stopwatch;
 
 
