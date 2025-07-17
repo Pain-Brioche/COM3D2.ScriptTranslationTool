@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -22,6 +24,8 @@ namespace COM3D2.ScriptTranslationTool
 
         internal static void Process(ref int scriptCount, ref int lineCount)
         {
+            BuildSubtitlesDictionary();
+
             //Starting the timer for the AutoSave
             stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -159,9 +163,44 @@ namespace COM3D2.ScriptTranslationTool
 
             IEnumerable<string> exportLines = Db.data
                                                 .Where(s => s.Value.scriptFiles.Any())
-                                                .Select(d => $"{d.Key}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
+                                                .Select(d => $"{d.Key}{Program.splitChar}{Program.splitChar}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
 
-            File.WriteAllLines($"{Program.i18nExScriptFolder}\\JaTScripts.txt", exportLines);
+            File.WriteAllLines($"JaTScripts.txt", exportLines);
+
+
+
+
+            // Expression régulière pour extraire les valeurs "voice" et "translation"
+            string pattern = @"""translation"":""(?<Translation>[^""]*)"",.*?""voice"":""(?<Voice>[^""""]*)""";
+
+            //Export subtitles as JaT format (AudioFile\tTranslaiton
+            IEnumerable<string> jatSubs = subtitles.SelectMany(s => s.Value)
+                                                   .Select(line =>
+                                                   {
+
+                                                       var match = Regex.Match(line, pattern);
+
+                                                       if (match.Success)
+                                                       {
+                                                           // Extraire les groupes capturés
+                                                           string voice = match.Groups["Voice"].Value;
+                                                           string translation = match.Groups["Translation"].Value;
+
+                                                           //Console.WriteLine($"Voice: {voice}");
+                                                           //Console.WriteLine($"Translation: {translation}");
+
+                                                           return $"{voice}\t\t{translation}";
+                                                       }
+                                                       else
+                                                       {
+                                                           //Tools.WriteLine($"{line} has not match", ConsoleColor.Red);
+                                                           return null;
+                                                       }
+                                                   })
+                                                   .Where(s => s != null);
+
+            if (jatSubs.Any())
+                File.WriteAllLines($"JaTSubtitles.txt", jatSubs);
         }
 
         //The method reviewed and fixed by copilot, can't take credit for this linq it's more complicated than it looks.
@@ -200,32 +239,6 @@ namespace COM3D2.ScriptTranslationTool
             }
 
             return byteDictionary;
-        }
-
-        private static IEnumerable<string> GetSubtitles(string script)
-        {
-            string subPath = Path.Combine(Program.cacheFolder, "Subtitles");
-
-
-            if (subtitles.Count == 0 && Directory.Exists(subPath))
-            {
-                IEnumerable<string> subtitlesFiles = Directory.EnumerateFiles(subPath);
-
-                foreach (string subtitleFile in subtitlesFiles)
-                {
-                    string scriptName = Path.GetFileNameWithoutExtension(subtitleFile);
-                    List<string> sbs = File.ReadAllLines(subtitleFile).ToList();
-
-                    subtitles.Add(scriptName, sbs);
-                }
-            }
-
-            List<string> subs = new List<string>();
-
-            if (subtitles.ContainsKey(script))
-                subs = subtitles[script];
-
-            return subs;
         }
 
         private static List<string> GetScripts()
@@ -304,6 +317,34 @@ namespace COM3D2.ScriptTranslationTool
 
 
             return lines.Distinct().ToList();
+        }
+
+        private static void BuildSubtitlesDictionary()
+        {
+            string subPath = Path.Combine(Program.cacheFolder, "Subtitles");
+
+            if (subtitles.Count == 0 && Directory.Exists(subPath))
+            {
+                IEnumerable<string> subtitlesFiles = Directory.GetFiles(subPath, "*.txt", SearchOption.TopDirectoryOnly);
+
+                foreach (string subtitleFile in subtitlesFiles)
+                {
+                    string scriptName = Path.GetFileNameWithoutExtension(subtitleFile);
+                    List<string> sbs = File.ReadAllLines(subtitleFile).ToList();
+
+                    subtitles.Add(scriptName, sbs);
+                }
+            }
+        }
+
+        private static IEnumerable<string> GetSubtitles(string script)
+        {
+            List<string> subs = new List<string>();
+
+            if (subtitles.ContainsKey(script))
+                subs = subtitles[script];
+
+            return subs;
         }
 
         private static void CheckTimer()

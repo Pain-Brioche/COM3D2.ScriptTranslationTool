@@ -85,32 +85,6 @@ namespace COM3D2.ScriptTranslationTool
             string path = Path.Combine(Program.i18nExScriptFolder, folder, fileName);
             File.AppendAllLines(path, lines);
         }
-
-
-        internal static void MoveFinished(string file, bool hasError)
-        {
-            string endPath;
-            string path = file.Substring(file.IndexOf("Japanese"));
-            if (hasError)
-            {
-                endPath = Path.Combine(Program.translatedScriptFolder, "[ERROR]", path);
-            }
-            else
-            {
-                endPath = Path.Combine(Program.translatedScriptFolder, path);
-            }
-
-            Tools.MakeFolder(Path.GetDirectoryName(endPath));
-
-            try
-            {
-                File.Move(file, endPath);
-            }
-            catch (Exception)
-            {
-                // if the file is left in place it will be ignored next time, not really an issue.
-            }
-        }
     }
 
 

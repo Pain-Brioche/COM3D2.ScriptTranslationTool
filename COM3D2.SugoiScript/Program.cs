@@ -9,25 +9,29 @@ namespace COM3D2.ScriptTranslationTool
 {
     internal static class Program
     {
-        internal static Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
+        //internal static Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
 
         internal static string cacheFolder = @"Caches";
         internal static string databaseFile = @"Caches\TranslationData.json";
+        internal const string jpCacheFile = "JpCache.json";
+        internal const char splitChar = '\t';
+        internal static string errorFile = "Errors.txt";
+
+
+        //legacy
         internal static string machineCacheFile = @"Caches\MachineTranslationCache.txt";
         internal static string officialCacheFile = @"Caches\OfficialTranslationCache.txt";
         internal static string officialSubtitlesCache = @"Caches\officialSubtitlesCache.txt";
         internal static string manualCacheFile = @"Caches\ManualTranslationCache.txt";
         internal static string archistoryFolder = @"Caches\ArcHistory";
-        internal static string errorFile = "Errors.txt";
-        internal const string jpCacheFile = "JpCache.json";
-        internal const char splitChar = '\t';
+
 
         internal static string japaneseScriptFolder = @"Scripts\Japanese";
-        internal static string englishScriptFolder = @"Scripts\English";
-        internal static string translatedScriptFolder = @"Scripts\AlreadyTranslated";
-        internal static string japaneseUIFolder = @"UI\Japanese";
+        internal static string englishScriptFolder = @"Scripts\English";   
         internal static string i18nExScriptFolder = @"Scripts\i18nEx\English\Script";
-        internal static string i18nExUIFolder = @"UI\i18nEx\English\UI";
+
+        internal static string UISourceFolder = @"UI\Source";
+        internal static string UIExportFolder = @"UI\Export";
 
 
         internal static string jpGameDataPath = "";
@@ -35,14 +39,12 @@ namespace COM3D2.ScriptTranslationTool
 
         internal static bool isTranslatorRunning = false;
         internal static bool isSafeExport = false;
-        internal static bool isExportBson = true;
-        internal static bool moveFinishedRawScript = false;
-        internal static bool forcedTranslation = false;
         internal static bool isSourceJpGame = false;
         internal static bool isSourceEngGame = true;
         internal static bool isIgnoreCbl = true;
 
         internal static ExportFormat currentExport = ExportFormat.Bson;
+        internal static ExportedElements currentExportedElements = ExportedElements.Scripts_and_UI;
 
         static void Main()
         {
@@ -55,11 +57,7 @@ namespace COM3D2.ScriptTranslationTool
             Tools.MakeFolder(englishScriptFolder);
             Tools.MakeFolder(japaneseScriptFolder);
             Tools.MakeFolder(cacheFolder);
-            Tools.MakeFolder(japaneseUIFolder);
-
-            if (moveFinishedRawScript)
-                Tools.MakeFolder(translatedScriptFolder);
-
+            Tools.MakeFolder(UISourceFolder);
 
             //Loading the translation database and counting content
             LoadDatabase();
@@ -93,11 +91,13 @@ namespace COM3D2.ScriptTranslationTool
 
             int scriptCount = 0;
             int lineCount = 0;
-            ScriptTranslation.Process(ref scriptCount, ref lineCount);
+            if (currentExportedElements != ExportedElements.UI)
+                ScriptTranslation.Process(ref scriptCount, ref lineCount);
 
             int csvCount = 0;
             int termCount = 0;
-            UITranslation.Process(ref csvCount, ref termCount);
+            if (currentExportedElements != ExportedElements.Scripts)
+                UITranslation.Process(ref csvCount, ref termCount);
 
 
             if (scriptCount > 0)
@@ -109,7 +109,7 @@ namespace COM3D2.ScriptTranslationTool
             if (csvCount > 0)
             {
                 Tools.WriteLine($"\n{termCount} terms translated across {csvCount} files.", ConsoleColor.Green);
-                Tools.WriteLine("\nUI translation done, you may recover them in UI\\i18nEx and copy them in your game folder.", ConsoleColor.Green);
+                Tools.WriteLine("\nUI translation done, you may recover them in UI\\Export.", ConsoleColor.Green);
             }
 
             Console.WriteLine("Press any key to close this program.");
@@ -126,8 +126,8 @@ namespace COM3D2.ScriptTranslationTool
                 if ((key.Key == ConsoleKey.D1) || (key.Key == ConsoleKey.NumPad1)) { isSourceJpGame = !isSourceJpGame; }
                 if ((key.Key == ConsoleKey.D2) || (key.Key == ConsoleKey.NumPad2)) { isSourceEngGame = !isSourceEngGame; }
                 if ((key.Key == ConsoleKey.D3) || (key.Key == ConsoleKey.NumPad3)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 5); }
-                if ((key.Key == ConsoleKey.D4) || (key.Key == ConsoleKey.NumPad4)) { isSafeExport = !isSafeExport; }
-                //if ((key.Key == ConsoleKey.D5) || (key.Key == ConsoleKey.NumPad5)) { forcedTranslation = !forcedTranslation; }
+                if ((key.Key == ConsoleKey.D4) || (key.Key == ConsoleKey.NumPad4)) { currentExportedElements = (ExportedElements)(((int)currentExportedElements + 1) % 3); }
+                if ((key.Key == ConsoleKey.D5) || (key.Key == ConsoleKey.NumPad5)) { isSafeExport = !isSafeExport; }                
                 //if ((key.Key == ConsoleKey.D6) || (key.Key == ConsoleKey.NumPad6)) { currentExport = (ExportFormat)(((int)currentExport + 1) % 3); }
                 if ((key.Key == ConsoleKey.D7) || (key.Key == ConsoleKey.NumPad7)) { JpScriptExtraction.ExtractJapanese(isSourceJpGame); }
                 if ((key.Key == ConsoleKey.D8) || (key.Key == ConsoleKey.NumPad8)) { EngScriptExtraction.ExtractOfficial(isSourceEngGame); }
@@ -138,17 +138,17 @@ namespace COM3D2.ScriptTranslationTool
                 Console.ResetColor();
                 Console.Write($" 1. Japanese Script Source: "); Tools.WriteLine(isSourceJpGame ? "JP Game .arc" : "Database", ConsoleColor.Blue);
                 Console.Write($" 2. English Script Source: "); Tools.WriteLine(isSourceEngGame ? "ENG Game .arc" : "Script Folder", ConsoleColor.Blue);
-                Console.Write($" 3. Export as: "); Tools.WriteLine(currentExport.ToString(), ConsoleColor.Blue);
-                Console.Write($" 4. Export with official translation: "); Tools.WriteLine((!isSafeExport).ToString(), ConsoleColor.Blue);
-                //Console.Write($" 5. Forced translation: "); Tools.WriteLine(forcedTranslation.ToString(), ConsoleColor.Blue);
-                
+                Console.Write($" 3. Export as: "); Tools.WriteLine(currentExport.ToString(), ConsoleColor.Blue);                
+                Console.Write($" 4. Export: "); Tools.WriteLine(currentExportedElements.ToString(), ConsoleColor.Blue);
+                Console.Write($" 5. Export official translation: "); Tools.WriteLine((!isSafeExport).ToString(), ConsoleColor.Blue);
+
                 Console.Write($" 7. Build/Update the japanese cache. Source: "); Tools.WriteLine($"{(isSourceJpGame ? jpGameDataPath : japaneseScriptFolder)}", ConsoleColor.Blue);
                 Console.Write($" 8. Build/Update the official translation cache. Source: "); Tools.WriteLine($"{(isSourceEngGame ? engGameDataPath : englishScriptFolder)}", ConsoleColor.Blue);
                 Console.Write($" 9. Clear Machine Translations");
                 Console.Write("\nPress Numbers for options or Enter to start translating: ");
 
                 key = Console.ReadKey();
-                Console.SetCursorPosition(0, Console.CursorTop - 7);
+                Console.SetCursorPosition(0, Console.CursorTop - 8);
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
@@ -157,7 +157,8 @@ namespace COM3D2.ScriptTranslationTool
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.Write(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, Console.CursorTop - 7);
+                Console.Write(new string(' ', Console.WindowWidth));
+                Console.SetCursorPosition(0, Console.CursorTop - 8);
             }
         }
 
@@ -291,6 +292,13 @@ namespace COM3D2.ScriptTranslationTool
             Bson,
             Zst,
             JaT
+        }
+
+        internal enum ExportedElements
+        {
+            Scripts_and_UI,
+            Scripts,
+            UI
         }
     }
 }

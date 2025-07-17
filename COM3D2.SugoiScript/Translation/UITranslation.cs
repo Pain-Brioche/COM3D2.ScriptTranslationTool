@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
-using System.Collections.Concurrent;
-using System.ComponentModel;
+
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -13,8 +10,16 @@ namespace COM3D2.ScriptTranslationTool
     {
         internal static void Process(ref int csvCount, ref int termCount)
         {
-            Tools.MakeFolder(Program.i18nExUIFolder);
-            IEnumerable<string> csvs = Directory.EnumerateFiles(Program.japaneseUIFolder, "*.csv*", SearchOption.AllDirectories);
+
+            if (Directory.Exists(Program.UIExportFolder))
+            {
+                string newPath = $"{Program.UIExportFolder} ({DateTime.Now:dd-mm-yyyy hhmmss})";
+                Directory.Move(Program.UIExportFolder, newPath);
+            }
+
+            Tools.MakeFolder(Program.UIExportFolder);
+            string[] csvs = Directory.GetFiles(Program.UISourceFolder, "*.csv*", SearchOption.AllDirectories);
+            List<string> errorCsv = new List<string>();
             
             foreach (string csv in csvs)
             {
@@ -32,15 +37,35 @@ namespace COM3D2.ScriptTranslationTool
                 using (var parser = new NotVisualBasic.FileIO.CsvTextFieldParser(csvReader))
                 {
                     //First line is always the header, so adding it back as is.
-                    csvOutput.Add(string.Join(",", parser.ReadFields()));
+                    if (Program.currentExport != Program.ExportFormat.JaT)
+                        csvOutput.Add(string.Join(",", parser.ReadFields()));
 
                     //While EoF isn't reached.
                     while (!parser.EndOfData)
                     {
                         termCount++;
 
+                        string[] values;
+
                         //We parse the line
-                        string[] values = parser.ReadFields();
+                        try
+                        {
+                            values = parser.ReadFields();
+                        }
+                        catch (Exception)
+                        {
+                            Tools.WriteLine($"line {parser.ErrorLineNumber} of {csv} cannot be parsed, this .csv will be ignored.", ConsoleColor.Red);
+                            csvOutput.Clear();
+                            errorCsv.Add($"{csv} line {parser.ErrorLineNumber}");
+                            break;
+                        }
+
+                        if (values.Length < 5)
+                        {
+                            Tools.WriteLine($"{string.Join(",", values)} has less than the 5 required entries", ConsoleColor.Red);
+                            errorCsv.Add($"{csv} Term {termCount}");
+                            continue;
+                        }
 
                         //The japanese is always the third index
                         string japanese = values[3].Trim();
@@ -49,9 +74,11 @@ namespace COM3D2.ScriptTranslationTool
                         //Check for translation placeholder
                         if (values[0] == values[4]) values[4] = "";
 
-
-                        //Skip already translated entries
-                        if (!string.IsNullOrEmpty(values[4])) continue;
+                        //Some line can already be translated
+                        if (!string.IsNullOrEmpty(values[4]))
+                        {
+                            csvOutput.Add(GetExportString(values, csv));
+                        }
 
                         string translation = string.Empty;
                         ConsoleColor color = ConsoleColor.Gray;
@@ -92,19 +119,59 @@ namespace COM3D2.ScriptTranslationTool
                         values[4] = translation;
 
                         //and those values in the csv
-                        csvOutput.Add(string.Join(",", values));
+                        csvOutput.Add(GetExportString(values, csv));
                     }
                 }
 
-                //Get the new pathcreate folders and write the file
-                string newPath = csv.Replace("UI\\Japanese", Program.i18nExUIFolder);
-                Tools.MakeFolder(Path.GetDirectoryName(newPath));
-                File.AppendAllLines(newPath, csvOutput);
+                //Write the .csv
+                if (csvOutput.Count > 0)
+                {
+                    string newPath = csv.Replace("UI\\Source", Program.UIExportFolder);
+                    Tools.MakeFolder(Path.GetDirectoryName(newPath));
+                    File.AppendAllLines(newPath, csvOutput);
+                }
 
-                csvCount++;
+                Tools.WriteLine($"{termCount} Terms translated.", ConsoleColor.Magenta);
+
+                //saving every 20 .csv
+                if (csvCount % 20 == 0 )
+                    Db.SaveToJson();
             }
+
+            //report on files with errors
+            if (errorCsv.Count > 0)
+            {
+                Tools.WriteLine("\nThose files returned an error:", ConsoleColor.Yellow);
+                foreach (var line in errorCsv)
+                    Tools.WriteLine(line, ConsoleColor.Red);
+            }
+
+            Db.SaveToJson();
+        }
+
+        private static string GetExportString(string[] values, string csv)
+        {
+            string csvExportString;
+            string[] escapedValues = values.Select(v => EscapeCharacters(v)).ToArray();
+
+            if (Program.currentExport != Program.ExportFormat.JaT)
+            {
+                csvExportString = string.Join(",", escapedValues);
+            }
+            else
+            {
+                csvExportString = $"\"{Path.GetFileNameWithoutExtension(csv)}/{escapedValues[0]}\",\"{escapedValues[3]}\",\"{escapedValues[4]}\"";
+            }
+                
+            return csvExportString;
+        }
+
+        private static string EscapeCharacters(string str)
+        {
+            return str.Replace("\"", "\"\"");
         }
     }
+
 
 
     public class TermDatas
