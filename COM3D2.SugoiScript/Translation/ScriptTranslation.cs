@@ -39,7 +39,7 @@ namespace COM3D2.ScriptTranslationTool
                 // No need to do any of this is no translation tools are running and
                 if (!Program.isTranslatorRunning && !Program.isSourceJpGame) break;
 
-                CheckTimer();
+                CheckAutoSaveTimer();
 
                 scriptCount++;
                 Console.Title = $"Processing ({scriptCount} out of {scripts.Count} scripts)";
@@ -66,6 +66,13 @@ namespace COM3D2.ScriptTranslationTool
                     Tools.Write(" => ", ConsoleColor.Yellow);
 
                     Line currentLine = Db.GetLine(japanese);
+
+                    //Skip already failed lines
+                    if (currentLine.HasRepeat || currentLine.HasError)
+                    {
+                        Tools.WriteLine("This line was already tried this session and failed.", ConsoleColor.Red);
+                        continue;
+                    }
 
                     //Get best translation possible Manual > Official > Machine.
                     translation = currentLine.GetBestTranslation(ref color);
@@ -347,7 +354,7 @@ namespace COM3D2.ScriptTranslationTool
             return subs;
         }
 
-        private static void CheckTimer()
+        private static void CheckAutoSaveTimer()
         {
             if (stopwatch.ElapsedMilliseconds > autoSaveTimer)
             {

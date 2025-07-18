@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -8,8 +9,16 @@ namespace COM3D2.ScriptTranslationTool
 {
     internal static class UITranslation
     {
+        static readonly int autoSaveTimer = 12 * 60 * 1000;
+        static Stopwatch stopwatch;
+
+
         internal static void Process(ref int csvCount, ref int termCount)
         {
+            //Starting the timer for the AutoSave
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
+
 
             if (Directory.Exists(Program.UIExportFolder))
             {
@@ -23,12 +32,14 @@ namespace COM3D2.ScriptTranslationTool
             
             foreach (string csv in csvs)
             {
+                CheckAutoSaveTimer();
+
                 csvCount++; 
                 Console.Title = $"Processing ({csvCount} out of {csvs.Count()} scripts)";
 
-                string fileName = Path.GetFileName(csv);
+                string csvFileName = Path.GetFileName(csv);
 
-                Tools.WriteLine($"\n-------- {fileName} --------", ConsoleColor.Yellow);
+                Tools.WriteLine($"\n-------- {csvFileName} --------", ConsoleColor.Yellow);
 
                 string csvInput = File.ReadAllText(csv);
                 List<string> csvOutput = new List<string>();
@@ -44,7 +55,6 @@ namespace COM3D2.ScriptTranslationTool
                     while (!parser.EndOfData)
                     {
                         termCount++;
-
                         string[] values;
 
                         //We parse the line
@@ -67,6 +77,12 @@ namespace COM3D2.ScriptTranslationTool
                             continue;
                         }
 
+                        //Getting rid of both chinese entries.
+                        if (values.Length > 5)
+                        {
+                            values = values.Take(5).ToArray();
+                        }
+
                         //The japanese is always the third index
                         string japanese = values[3].Trim();
                         if (string.IsNullOrEmpty(japanese)) continue;
@@ -78,6 +94,7 @@ namespace COM3D2.ScriptTranslationTool
                         if (!string.IsNullOrEmpty(values[4]))
                         {
                             csvOutput.Add(GetExportString(values, csv));
+                            continue;
                         }
 
                         string translation = string.Empty;
@@ -126,8 +143,7 @@ namespace COM3D2.ScriptTranslationTool
                 //Write the .csv
                 if (csvOutput.Count > 0)
                 {
-                    string newPath = csv.Replace("UI\\Source", Program.UIExportFolder);
-                    Tools.MakeFolder(Path.GetDirectoryName(newPath));
+                    string newPath = Path.Combine(Program.UIExportFolder, csvFileName);
                     File.AppendAllLines(newPath, csvOutput);
                 }
 
@@ -145,8 +161,6 @@ namespace COM3D2.ScriptTranslationTool
                 foreach (var line in errorCsv)
                     Tools.WriteLine(line, ConsoleColor.Red);
             }
-
-            Db.SaveToJson();
         }
 
         private static string GetExportString(string[] values, string csv)
@@ -169,6 +183,17 @@ namespace COM3D2.ScriptTranslationTool
         private static string EscapeCharacters(string str)
         {
             return str.Replace("\"", "\"\"");
+        }
+
+        private static void CheckAutoSaveTimer()
+        {
+            if (stopwatch.ElapsedMilliseconds > autoSaveTimer)
+            {
+                Console.WriteLine("\n===========================================================");
+                Db.SaveToJson();
+                Console.WriteLine("\n===========================================================");
+                stopwatch.Restart();
+            }
         }
     }
 

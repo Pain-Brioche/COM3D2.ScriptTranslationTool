@@ -255,7 +255,7 @@ namespace COM3D2.ScriptTranslationTool
 
             if (HasError || HasRepeat || string.IsNullOrEmpty(Machine))
             {
-                File.AppendAllText("\nTranslation Errors.txt", $"JP:{Japanese} => {Machine}");
+                File.AppendAllText("Translation Errors.txt", $"\nJP:{Japanese} => {Machine}");
                 Machine = "";
             }
         }
