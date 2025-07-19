@@ -9,6 +9,7 @@ namespace COM3D2.ScriptTranslationTool
 {
     internal static class UITranslation
     {
+        static List<string> alreadyParsedTerms = new List<string>();
         static readonly int autoSaveTimer = 12 * 60 * 1000;
         static Stopwatch stopwatch;
 
@@ -84,9 +85,14 @@ namespace COM3D2.ScriptTranslationTool
                             }
 
                             //The japanese is always the third index
+                            string term = values[0].Trim();
                             string japanese = values[3].Trim();
                             string english = values[4].Trim();
-                            
+
+                            //Discarding Terms already exported
+                            if (alreadyParsedTerms.Contains(term))
+                                continue;
+
                             //Sometimes both entries are empty, just ignore those
                             if (string.IsNullOrEmpty(japanese) && string.IsNullOrEmpty(english)) continue;
 
@@ -98,7 +104,7 @@ namespace COM3D2.ScriptTranslationTool
                             }                                      
 
                             //Check for translation placeholder
-                            if (values[0] == english) values[4] = "";
+                            if (term == english) values[4] = "";
 
                             //Some line can already be translated
                             if (!string.IsNullOrEmpty(english))
@@ -190,6 +196,8 @@ namespace COM3D2.ScriptTranslationTool
 
         private static string GetExportString(string[] values, string csv)
         {
+            alreadyParsedTerms.Add(values[0].Trim());
+
             string csvExportString;
             string[] escapedValues = values.Select(v => EscapeCharacters(v)).ToArray();
 
