@@ -19,10 +19,10 @@ namespace COM3D2.ScriptTranslationTool
         private const string sugoiAdress = "http://127.0.0.1:14366/";
 
         //LLM stuff
-        private static string url = "http://127.0.0.1:1234/v1/chat/completions";
-        private static string apiKey = "api_key";
-        private static string modelName = "sugoi14b";
-        private static double temp = 0.5;
+        internal static string url = "http://127.0.0.1:1234/v1/chat/completions";
+        internal static string apiKey = "api_key";
+        internal static string modelName = "sugoi14b";
+        internal static double temp = 0.5;
 
 
         internal static ILine ToEnglish(ILine line)

@@ -65,38 +65,14 @@ namespace COM3D2.ScriptTranslationTool
                 Program.i18nExScriptFolder = ConfigurationManager.AppSettings.Get("i18nExScriptPath");
                 Program.englishScriptFolder = ConfigurationManager.AppSettings.Get("EnglishScriptPath");
 
-                //getting GameData path Setting > Registry > Ask
-                if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings.Get("JPGamePath")))
-                {
-                    Program.jpGameDataPath = Path.Combine(ConfigurationManager.AppSettings.Get("JPGamePath"),"GameData");
-                }
+                Translate.url = ConfigurationManager.AppSettings.Get("LLM Adress");
+                Translate.apiKey = ConfigurationManager.AppSettings.Get("LLM API Key");
+                Translate.modelName = ConfigurationManager.AppSettings.Get("LLM Model Name");
+
+                if (double.TryParse(ConfigurationManager.AppSettings["LLM Temperature"], out double tempValue))
+                    Translate.temp = tempValue;                
                 else
-                {
-                    RegistryKey keyJp = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\KISS\カスタムオーダーメイド3D2");
-
-                    if (keyJp != null)
-                    {
-                        string installPath = keyJp.GetValue("InstallPath").ToString();
-                        keyJp.Close();
-                        Program.jpGameDataPath = Path.Combine(installPath, "GameData");
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings.Get("ENGGamePath")))
-                {
-                    Program.engGameDataPath = Path.Combine(ConfigurationManager.AppSettings.Get("ENGGamePath"), "GameData");
-                }
-                else
-                {
-                    RegistryKey keyEn = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\KISS\CUSTOM ORDER MAID3D 2");
-
-                    if (keyEn != null)
-                    {
-                        string installPath = keyEn.GetValue("InstallPath").ToString();
-                        keyEn.Close();
-                        Program.engGameDataPath = Path.Combine(installPath, "GameData");
-                    }
-                }
+                    Translate.temp = 0.5;
             }
         }
 

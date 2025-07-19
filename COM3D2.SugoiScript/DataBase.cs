@@ -16,6 +16,8 @@ namespace COM3D2.ScriptTranslationTool
 
         internal static Line GetLine(string japanese)
         {
+            japanese = japanese.Trim();
+
             if (data.ContainsKey(japanese))
                 return data[japanese];
             else
@@ -255,6 +257,7 @@ namespace COM3D2.ScriptTranslationTool
 
             if (HasError || HasRepeat || string.IsNullOrEmpty(Machine))
             {
+                HasError = true ;
                 File.AppendAllText("Translation Errors.txt", $"\nJP:{Japanese} => {Machine}");
                 Machine = "";
             }
