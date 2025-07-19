@@ -92,8 +92,10 @@ namespace COM3D2.ScriptTranslationTool
 
                             //If Only the Japanese entry is missing, pass the entire line as is
                             if (string.IsNullOrEmpty(japanese) && !string.IsNullOrEmpty(english))
-                                csvOutput.Add(GetExportString(values, csv));
-
+                            {
+                               csvOutput.Add(GetExportString(values, csv));
+                               continue;
+                            }                                      
 
                             //Check for translation placeholder
                             if (values[0] == english) values[4] = "";
