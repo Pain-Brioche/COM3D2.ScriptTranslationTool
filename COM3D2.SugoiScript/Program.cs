@@ -180,7 +180,12 @@ namespace COM3D2.ScriptTranslationTool
 
         private static void LoadLegacyCache()
         {
-            if (File.Exists(machineCacheFile) || File.Exists(officialCacheFile) || File.Exists(machineCacheFile))
+            if (File.Exists(machineCacheFile)
+                || File.Exists(officialCacheFile)
+                || File.Exists(manualCacheFile)
+                || Directory.GetFiles(Program.cacheFolder, "*.txt*", SearchOption.AllDirectories)
+                            .Any(f => Path.GetFileName(f).StartsWith("CustomTranslationCache_"))
+                )
             {
                 Tools.WriteLine("\nLoading legacy caches.", ConsoleColor.White);
 

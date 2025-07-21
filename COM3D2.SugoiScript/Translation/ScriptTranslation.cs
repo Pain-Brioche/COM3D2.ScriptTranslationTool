@@ -216,12 +216,14 @@ namespace COM3D2.ScriptTranslationTool
 
             //That's why I don't like using AI, it's supposed to get all scripts and corresponding lines with sentences, but I don't understand it...
             var scriptGroups = Db.data
-                .SelectMany(kvp => kvp.Value.scriptFiles.Select(sf => new
-                {
-                    Script = sf,
-                    Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
-                }))
-                .GroupBy(x => x.Script);
+                                 .SelectMany(kvp => kvp.Value.scriptFiles
+                                                             .Where(_ => !string.IsNullOrEmpty(kvp.Value.GetBestTranslation()))
+                                                             .Select(sf => new
+                                                             {
+                                                                 Script = sf,
+                                                                 Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                                                             }))
+                                 .GroupBy(x => x.Script);
 
             int count = 0;
             int total = scriptGroups.Count();
