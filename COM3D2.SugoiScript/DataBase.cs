@@ -41,18 +41,18 @@ namespace COM3D2.ScriptTranslationTool
                 data.Add(japanese, new Line());
 
             UpdateTranslation(japanese, translation, type);
-            AddScriptFile(japanese, scriptFile);
-            AddScriptFile(japanese, scriptFiles);
+            UpdateScriptFile(japanese, scriptFile);
+            UpdateScriptFile(japanese, scriptFiles);
         }
 
-        private static void AddScriptFile(string japanese, string scriptFile)
+        private static void UpdateScriptFile(string japanese, string scriptFile)
         {
             //Add script file name if it exists and isn't already there, same for csv
             if (!string.IsNullOrEmpty(scriptFile) && !data[japanese].scriptFiles.Contains(scriptFile))
                 data[japanese].scriptFiles.Add(scriptFile);
         }
 
-        private static void AddScriptFile(string japanese, string[] scriptFiles)
+        private static void UpdateScriptFile(string japanese, string[] scriptFiles)
         {
             if (scriptFiles != null)
             {

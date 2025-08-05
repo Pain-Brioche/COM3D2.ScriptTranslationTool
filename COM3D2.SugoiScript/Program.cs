@@ -165,6 +165,7 @@ namespace COM3D2.ScriptTranslationTool
                 Console.SetCursorPosition(0, Console.CursorTop - 4);
             }
         }
+        
 
         private static void LoadDatabase()
         {

@@ -111,18 +111,19 @@ namespace COM3D2.ScriptTranslationTool
                             //Some line can already be translated
                             if (!string.IsNullOrEmpty(english))
                             {
-                                //Recover eventual manual translations
-                                if (!string.IsNullOrEmpty(currentLine.Manual))
-                                    values[4] = currentLine.Manual;
-
-                                csvOutput.Add(GetExportString(values, csv));
-
+                                //Adding english to the database
                                 TlType tlType = TlType.Ignored;
 
                                 if (csv.Contains(Program.UISourceFolder + "\\ENG"))
                                     tlType = TlType.Official;
 
                                 Db.Add(values[3], values[4], tlType);
+
+                                //Recover eventual manual translations
+                                if (!string.IsNullOrEmpty(currentLine.Manual))
+                                      values[4] = currentLine.Manual;
+
+                                csvOutput.Add(GetExportString(values, csv));
                                 continue;
                             }
 
@@ -171,6 +172,11 @@ namespace COM3D2.ScriptTranslationTool
                 //Write the .csv
                 if (csvOutput.Count > 1)
                 {
+                    //First line is always the header
+                    if (Program.currentExport != Program.ExportFormat.JaT)
+                        csvOutput[0] = $"Key,Type,Desc,Japanese,English";
+
+
                     //First line is always the header, changing it for JaT.
                     if (Program.currentExport == Program.ExportFormat.JaT)
                         csvOutput[0] = $"Term,Original,Translation";
