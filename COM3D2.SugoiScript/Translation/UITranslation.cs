@@ -90,8 +90,7 @@ namespace COM3D2.ScriptTranslationTool
                             string english = values[4].Trim();
 
                             //Discarding Terms already exported
-                            if (alreadyParsedTerms.Contains(term))
-                                continue;
+                            if (alreadyParsedTerms.Contains(term))  continue;
 
                             //Sometimes both entries are empty, just ignore those
                             if (string.IsNullOrEmpty(japanese) && string.IsNullOrEmpty(english)) continue;
@@ -106,9 +105,16 @@ namespace COM3D2.ScriptTranslationTool
                             //Check for translation placeholder
                             if (term == english) values[4] = "";
 
+                            //Recover eventual translations from the database
+                            Line currentLine = Db.GetLine(japanese);
+
                             //Some line can already be translated
                             if (!string.IsNullOrEmpty(english))
                             {
+                                //Recover eventual manual translations
+                                if (!string.IsNullOrEmpty(currentLine.Manual))
+                                    values[4] = currentLine.Manual;
+
                                 csvOutput.Add(GetExportString(values, csv));
 
                                 TlType tlType = TlType.Ignored;
@@ -125,9 +131,7 @@ namespace COM3D2.ScriptTranslationTool
                             ConsoleColor color = ConsoleColor.Gray;
 
                             Console.Write(japanese);
-                            Tools.Write(" => ", ConsoleColor.Yellow);
-
-                            Line currentLine = Db.GetLine(japanese);
+                            Tools.Write(" => ", ConsoleColor.Yellow);                            
 
                             //Get best translation possible Manual > Official > Machine.
                             translation = currentLine.GetBestTranslation(ref color);

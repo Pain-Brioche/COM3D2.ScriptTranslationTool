@@ -14,6 +14,7 @@ namespace COM3D2.ScriptTranslationTool
         internal static string cacheFolder = @"Caches";
         internal static string databaseFile = @"Caches\TranslationData.json";
         internal const string jpCacheFile = "JpCache.json";
+        internal const string scriptCacheFile = "ScriptCache.json";
         internal const char splitChar = '\t';
         internal static string errorFile = "Errors.txt";
 
@@ -61,6 +62,9 @@ namespace COM3D2.ScriptTranslationTool
 
             //Loading the translation database and counting content
             LoadDatabase();
+
+            //Loading ScriptCache.json into the database
+            LoadScriptCache();
 
             //Loading JpCache.json into the database
             LoadJpCache();
@@ -172,10 +176,10 @@ namespace COM3D2.ScriptTranslationTool
 
             Tools.WriteLine("Loading Translation Data.", ConsoleColor.White);
             Db.LoadFromJson();
-            Console.WriteLine($"Total number of Japanese lines: {Db.data.Count.ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
-            Console.WriteLine($"Official Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Official)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
-            Console.WriteLine($"Manual Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Manual)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
-            Console.WriteLine($"Machine Translations: {Db.data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Machine)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Total number of Japanese lines: {Db.Data.Count.ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Official Translations: {Db.Data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Official)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Manual Translations: {Db.Data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Manual)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
+            Console.WriteLine($"Machine Translations: {Db.Data.Values.Count(line => !string.IsNullOrWhiteSpace(line.Machine)).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"))}");
         }
 
         private static void LoadLegacyCache()
@@ -287,6 +291,33 @@ namespace COM3D2.ScriptTranslationTool
                 Db.SaveToJson();
 
                 Console.WriteLine("JpCache.json has been loaded and saved inside the database.");
+            }
+        }
+
+        private static void LoadScriptCache()
+        {
+            Dictionary<string, Line> scriptCache = new Dictionary<string, Line>();
+            string scriptCachePath = Path.Combine(cacheFolder, scriptCacheFile);
+
+
+            if (File.Exists(scriptCachePath))
+            {
+                Tools.WriteLine("Loading ScriptCache.json.", ConsoleColor.Green);
+                scriptCache = Cache.LoadJson(scriptCache, scriptCachePath);
+
+                foreach (KeyValuePair<string, Line> kvp in scriptCache)
+                {
+                    string japanese = kvp.Key;
+                    string official = kvp.Value.Official;
+                    string[] scripts = kvp.Value.scriptFiles.ToArray();
+
+                    Db.Add(japanese, official, TlType.Official, scriptFiles: scripts);
+                }
+
+                Tools.WriteLine($"{scriptCache.Count} lines loaded from ScriptCache.json.", ConsoleColor.Green);
+                Db.SaveToJson();
+
+                Console.WriteLine("ScriptCache.json has been loaded and saved inside the database.");
             }
         }
 

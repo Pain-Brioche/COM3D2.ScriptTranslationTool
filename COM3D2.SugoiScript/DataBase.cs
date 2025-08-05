@@ -12,7 +12,10 @@ namespace COM3D2.ScriptTranslationTool
 {
     public static class Db
     {
-        internal static Dictionary<string, Line> data = new Dictionary<string, Line>();
+        private static Dictionary<string, Line> data = new Dictionary<string, Line>();
+
+        // Read only propriety
+        public static IReadOnlyDictionary<string, Line> Data => data;
 
         internal static Line GetLine(string japanese)
         {
@@ -27,7 +30,7 @@ namespace COM3D2.ScriptTranslationTool
             }
         }
 
-        internal static void Add(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "")
+        internal static void Add(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "", string[] scriptFiles = null)
         { 
             //All Japanese sentences should be trimmed and obviously not empty
             japanese = japanese.Trim();
@@ -37,33 +40,42 @@ namespace COM3D2.ScriptTranslationTool
             if (!data.ContainsKey(japanese))
                 data.Add(japanese, new Line());
 
-            Update(japanese, translation, type, scriptFile, csvFile);
+            UpdateTranslation(japanese, translation, type);
+            AddScriptFile(japanese, scriptFile);
+            AddScriptFile(japanese, scriptFiles);
         }
 
-        private static void Update(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "")
+        private static void AddScriptFile(string japanese, string scriptFile)
+        {
+            //Add script file name if it exists and isn't already there, same for csv
+            if (!string.IsNullOrEmpty(scriptFile) && !data[japanese].scriptFiles.Contains(scriptFile))
+                data[japanese].scriptFiles.Add(scriptFile);
+        }
+
+        private static void AddScriptFile(string japanese, string[] scriptFiles)
+        {
+            if (scriptFiles != null)
+            {
+                data[japanese].scriptFiles.AddRange(scriptFiles);
+                data[japanese].scriptFiles = data[japanese].scriptFiles.Distinct().ToList();
+            }
+        }
+
+        private static void UpdateTranslation(string japanese, string translation = "", TlType type = TlType.Ignored)
         {
             japanese = japanese.Trim();
 
-            if (data.ContainsKey(japanese))
+            if (data.ContainsKey(japanese) && !string.IsNullOrEmpty(translation))
             {
-                // avoid replacing eventual existing translations by empty ones
-                if (!string.IsNullOrEmpty(translation))
-                {
-                    if (type == TlType.Official)
-                        data[japanese].Official = translation;
-                    else if (type == TlType.Machine)
-                        data[japanese].Machine = translation;
-                    else if (type == TlType.Manual)
-                        data[japanese].Manual = translation;
-                }
-
-                //Add script file name if it exists and isn't already there, same for csv
-                if (!string.IsNullOrEmpty(scriptFile) && !data[japanese].scriptFiles.Contains(scriptFile))
-                    data[japanese].scriptFiles.Add(scriptFile);
-                if (!string.IsNullOrEmpty(csvFile) && !data[japanese].csvFiles.Contains(csvFile))
-                    data[japanese].csvFiles.Add(csvFile);
+                if (type == TlType.Official)
+                    data[japanese].Official = translation;
+                else if (type == TlType.Machine)
+                    data[japanese].Machine = translation;
+                else if (type == TlType.Manual)
+                    data[japanese].Manual = translation;
             }
         }
+        
 
         internal static void Remove(string japanese)
         {
@@ -232,7 +244,7 @@ namespace COM3D2.ScriptTranslationTool
 
 
             // check for repeating characters
-            if (Regex.IsMatch(Machine, @"(\w)\1{15,}"))
+            if (Regex.IsMatch(Machine, @"(.)\1{15,}"))
             {
                 HasRepeat = true;
             }

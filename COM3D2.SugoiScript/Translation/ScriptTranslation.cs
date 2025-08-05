@@ -57,6 +57,9 @@ namespace COM3D2.ScriptTranslationTool
                     // skip if line is empty
                     if (string.IsNullOrEmpty(line.Trim())) continue;
 
+                    // skip ------------Text----------- ChoiceSet
+                    if (line.Contains("-----")) continue;
+
                     ConsoleColor color = ConsoleColor.Gray;
                     string japanese = line.Trim();
                     string translation = string.Empty;
@@ -126,7 +129,7 @@ namespace COM3D2.ScriptTranslationTool
 
             //for each script get the japanese lines and their translations then save as .txt
             //this export format does not support tabulations in sentences
-            var scriptGroups = Db.data
+            var scriptGroups = Db.Data
                                  .SelectMany(kvp => kvp.Value.scriptFiles.Select(sf => new
                                  {
                                      Script = sf,
@@ -168,7 +171,7 @@ namespace COM3D2.ScriptTranslationTool
         {
             Tools.MakeFolder(Program.i18nExScriptFolder);
 
-            IEnumerable<string> exportLines = Db.data
+            IEnumerable<string> exportLines = Db.Data
                                                 .Where(s => s.Value.scriptFiles.Any())
                                                 .Select(d => $"{d.Key}{Program.splitChar}{Program.splitChar}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
 
@@ -215,7 +218,7 @@ namespace COM3D2.ScriptTranslationTool
         {
 
             //That's why I don't like using AI, it's supposed to get all scripts and corresponding lines with sentences, but I don't understand it...
-            var scriptGroups = Db.data
+            var scriptGroups = Db.Data
                                  .SelectMany(kvp => kvp.Value.scriptFiles
                                                              .Where(_ => !string.IsNullOrEmpty(kvp.Value.GetBestTranslation()))
                                                              .Select(sf => new
@@ -316,7 +319,7 @@ namespace COM3D2.ScriptTranslationTool
                 // Get all scripts names in the database, only scripts having at least one sentence to translate are selected.
                 Tools.WriteLine($"Loading scripts from the Translation Database.", ConsoleColor.Green);
                 Tools.WriteLine("Please note that only scripts containing untranslated sentences are selected, to avoid unecessary listing.", ConsoleColor.Green);
-                scriptsSource = Db.data.Values
+                scriptsSource = Db.Data.Values
                                   .Where(l => string.IsNullOrEmpty(l.GetBestTranslation()))
                                   .SelectMany(line => line.scriptFiles)
                                   .Distinct()
@@ -348,7 +351,7 @@ namespace COM3D2.ScriptTranslationTool
             else if (scriptSourceType == ScriptSourceType.Database)
             {
                 //Only returns lines without available translations.
-                lines = Db.data
+                lines = Db.Data
                           .Where(d => d.Value.scriptFiles.Contains(filename) && string.IsNullOrEmpty(d.Value.GetBestTranslation()))
                           .Select(l => l.Key)
                           .ToList();
