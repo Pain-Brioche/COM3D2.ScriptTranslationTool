@@ -172,19 +172,16 @@ namespace COM3D2.ScriptTranslationTool
                 //Write the .csv
                 if (csvOutput.Count > 1)
                 {
-                    //First line is always the header
-                    if (Program.currentExport != Program.ExportFormat.JaT)
+                    string newPath = Path.Combine(Program.UIExportFolder, csvFileName);
+
+                    //First line is always the header unless the file already exists.
+                    if (Program.currentExport != Program.ExportFormat.JaT && !File.Exists(newPath))
                         csvOutput[0] = $"Key,Type,Desc,Japanese,English";
 
 
                     //First line is always the header, changing it for JaT.
-                    if (Program.currentExport == Program.ExportFormat.JaT)
+                    if (Program.currentExport == Program.ExportFormat.JaT && !File.Exists(newPath))
                         csvOutput[0] = $"Term,Original,Translation";
-
-                    //removing additional headers.
-                    string newPath = Path.Combine(Program.UIExportFolder, csvFileName);
-                    if (File.Exists(newPath))
-                        csvOutput.RemoveAt(0);
 
 
                     File.AppendAllLines(newPath, csvOutput);
