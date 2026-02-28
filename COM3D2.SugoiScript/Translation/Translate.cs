@@ -23,6 +23,9 @@ namespace COM3D2.ScriptTranslationTool
         internal static string apiKey = "api_key";
         internal static string modelName = "sugoi14b";
         internal static double temp = 0.5;
+        internal static double repetition_penalty = 1.1;
+        internal static double top_p = 0.9;
+        internal static int max_tokens = -1;
 
 
         internal static ILine ToEnglish(ILine line)
@@ -73,7 +76,7 @@ namespace COM3D2.ScriptTranslationTool
             if (!client.DefaultRequestHeaders.Contains("Authorization"))
             {
                 client.DefaultRequestHeaders.Add("Authorization", "Bearer " + apiKey);
-            }            
+            }
 
             //create the request in OpenAI API format
             var chatRequest = new ChatRequest
@@ -85,6 +88,8 @@ namespace COM3D2.ScriptTranslationTool
                 },
                 temperature = temp,
                 max_tokens = -1,
+                repetition_penalty = repetition_penalty,
+                top_p = top_p,
                 stream = false
             };
 
@@ -198,6 +203,8 @@ namespace COM3D2.ScriptTranslationTool
             public List<Message> messages { get; set; }
             public double temperature { get; set; }
             public int max_tokens { get; set; }
+            public double repetition_penalty { get; set; }
+            public double top_p { get; set; }
             public bool stream { get; set; }
         }
 

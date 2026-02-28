@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -67,19 +68,56 @@ namespace COM3D2.ScriptTranslationTool
 
             if (data.ContainsKey(japanese) && !string.IsNullOrEmpty(translation))
             {
-                if (type == TlType.Official)
+                if (type == TlType.Official && (string.IsNullOrEmpty(data[japanese].Official) || Program.enableOverwrite))
                     data[japanese].Official = translation;
                 else if (type == TlType.Machine)
                     data[japanese].Machine = translation;
-                else if (type == TlType.Manual)
+                else if (type == TlType.Manual && (string.IsNullOrEmpty(data[japanese].Manual) || Program.enableOverwrite))
                     data[japanese].Manual = translation;
             }
         }
         
 
-        internal static void Remove(string japanese)
+        private static void Remove(string japanese)
         {
             data.Remove(japanese.Trim());
+        }
+
+
+        internal static void Clean()
+        {
+            Console.WriteLine("This will attempt to clean the database. A backup will be created.");
+            Console.Write("Do you want to proceed ? (Y//N): ");
+            var inputKey = Console.ReadLine();
+            if ((inputKey.ToLower() == "y"))
+            {
+                //Removes lines such as --------------------ck_menu_000--------------------
+                foreach (var key in from key in data.Keys.ToList()  
+                                    where key.Contains("------")
+                                    select key)
+                {
+                    Console.Write("Removing: ");
+                    Tools.WriteLine($"{key}", ConsoleColor.Cyan);
+                    Remove(key);
+                }
+
+
+                //making a backup
+                string currentTime = DateTime.Now.ToString("yyyy-MM-dd HHmmss");
+                string backupPath = $"{Program.cacheFolder}\\({currentTime})_TranslationData_Backup.json";
+                File.Move(Program.databaseFile, backupPath);
+
+                SaveToJson();
+                Tools.WriteLine("Database has been cleaned", ConsoleColor.Green);
+                Tools.WriteLine($"{backupPath} has been created", ConsoleColor.Green);
+            }
+            else
+            {
+                Tools.WriteLine("Aborted", ConsoleColor.Green);
+            }
+                
+            Console.WriteLine("\n");
+            Program.OptionMenu();
         }
 
         internal static void ClearMachineTranslations()
@@ -91,6 +129,7 @@ namespace COM3D2.ScriptTranslationTool
 
             if (answer.ToLower() == "yes")
             {
+                //making a backup
                 string currentTime = DateTime.Now.ToString("yyyy-MM-dd HHmmss");
                 string backupPath = $"{Program.cacheFolder}\\({currentTime})_TranslationData_Backup.json";
                 File.Move(Program.databaseFile, backupPath);

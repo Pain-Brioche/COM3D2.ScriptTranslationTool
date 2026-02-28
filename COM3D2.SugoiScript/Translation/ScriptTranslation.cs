@@ -1,14 +1,15 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.PerformanceData;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Diagnostics;
-using System.Threading.Tasks;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json;
+using System.Threading.Tasks;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -18,7 +19,7 @@ namespace COM3D2.ScriptTranslationTool
         static List<string> scripts = new List<string>();
         static readonly Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
         static ScriptSourceType scriptSourceType = ScriptSourceType.None;
-        static readonly int autoSaveTimer = 12 * 60 * 1000;
+        const int autoSaveTimer = 12 * 60 * 1000;
         static Stopwatch stopwatch;
 
 
@@ -87,6 +88,10 @@ namespace COM3D2.ScriptTranslationTool
                         color = ConsoleColor.Blue;
                     }
 
+                    //add the script name to the database in case the sources are loose .txt
+                    if (scriptSourceType == ScriptSourceType.ScriptFile && !currentLine.scriptFiles.Contains(scriptName))
+                        currentLine.scriptFiles.Add(scriptName);
+
                     //In case a translation is missing and sugoi isn't running
                     else if (string.IsNullOrEmpty(translation) && !Program.isTranslatorRunning)
                     {
@@ -116,7 +121,12 @@ namespace COM3D2.ScriptTranslationTool
                 ExportToZst();
             else if (Program.currentExport == Program.ExportFormat.JaT)
                 ExportToJaT();
-            
+
+            //clearing caches to free up memory
+            jpCache.Clear();
+            scripts.Clear();
+            subtitles.Clear();
+
         }
 
 
@@ -126,23 +136,38 @@ namespace COM3D2.ScriptTranslationTool
 
             // Create folder to sort script files in
             ScriptManagement.CreateSortedFolders();
+;
+            var scriptsFilename = scripts.Select(fn => Path.GetFileName(fn));
+            Console.WriteLine($"Found {scriptsFilename.Count()} scripts files");
 
-            //for each script get the japanese lines and their translations then save as .txt
-            //this export format does not support tabulations in sentences
             var scriptGroups = Db.Data
-                                 .SelectMany(kvp => kvp.Value.scriptFiles.Select(sf => new
+                                 .SelectMany(kvp => kvp.Value.scriptFiles
+                                 .Where(sf => scriptsFilename.Contains(sf))
+                                 .Select(sf => new
                                  {
                                      Script = sf,
                                      Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
                                  }))
                                  .GroupBy(x => x.Script);
 
-            Parallel.ForEach(scriptGroups, group =>
+            Console.WriteLine($"scriptGoups contains: {scriptGroups.Count()}");
+
+
+            List<string> failures = new List<string>();
+
+            foreach (var group in scriptGroups)
             {
                 var subs = GetSubtitles(group.Key);
                 var lines = group.Select(x => x.Line).Concat(subs).ToList();
-                ScriptManagement.SaveTxt(group.Key, lines);
-            });
+                ScriptManagement.SaveTxt(group.Key, lines, failures);
+            }
+
+            if (failures.Count > 0)
+            {
+                Tools.WriteLine("Those files cannot be written on disk after five retries and should be processed again.", ConsoleColor.DarkRed);
+                foreach (var failure in failures)
+                    Tools.WriteLine(failure, ConsoleColor.Red);
+            }
         }
 
         private static void ExportToBson()
@@ -250,59 +275,26 @@ namespace COM3D2.ScriptTranslationTool
                 Console.Title = $"{count.ToString("N0", culture)} sur {total.ToString("N0", culture)}";
             }
 
+            //Exporting subtitles as a JaT compatible syntax
+
+            List<string> jatSubs = new List<string>();
+            foreach (var subFile in subtitles) 
+            {
+                foreach (var s in subFile.Value)
+                {
+                    JObject obj = JObject.Parse(s);
+
+                    string voice = (string)obj["voice"];
+                    string translation = (string)obj["translation"];
+
+                    jatSubs.Add($"{voice}\t\t{translation}");
+                }
+            }
+            File.WriteAllLines("Scripts\\JaTSubtitles.txt", jatSubs);
+
             return byteDictionary;
         }
 
-        //Old GetScript() Method 
-        /*
-        private static List<string> GetScriptsOld()
-        {
-            var scriptsSource = new List<string>();
-
-            //The program will prioritize as follow: JpCache.json > Loose .txt scripts > TranslationData.json
-            //The reason being JpCache has more likelyhood to be recent and more accurate to the game's actual content, Loose script for small translations job and lastly the database with everything ever recorded.
-
-            if (Program.isSourceJpGame)
-            {
-                string jpCachePath = Path.Combine(Program.cacheFolder, Program.jpCacheFile);
-
-                if (File.Exists(jpCachePath))
-                {
-                    jpCache = Cache.LoadJson(jpCache, jpCachePath);
-                    Tools.WriteLine($"Loading {jpCache.Count} scripts from JpCache.json", ConsoleColor.Green);
-
-                    scriptsSource = jpCache.Keys.ToList();
-                    scriptSourceType = ScriptSourceType.JpCache;
-                }
-            }
-            else
-            {
-                scriptsSource = Directory.EnumerateFiles(Program.japaneseScriptFolder, "*.txt*", SearchOption.AllDirectories)
-                                         .ToList();
-
-                if (scriptsSource.Any())
-                {
-                    Tools.WriteLine($"Loading {scriptsSource.Count} files from the Japanese script folder.", ConsoleColor.Green);
-                    scriptSourceType = ScriptSourceType.ScriptFile;
-                }
-                else
-                {
-                    // Get all scripts names in the database, only scripts having at least one sentence to translate are selected.
-                    Tools.WriteLine($"Loading scripts from the Translation Database.", ConsoleColor.Green);
-                    Tools.WriteLine("Please note that only scripts containing untranslated sentences are selected, to avoid unecessary listing.", ConsoleColor.Green);
-                    scriptsSource = Db.data.Values
-                                      .Where(l => string.IsNullOrEmpty(l.GetBestTranslation()))  
-                                      .SelectMany(line => line.scriptFiles)
-                                      .Distinct()
-                                      .ToList();
-
-                    scriptSourceType = ScriptSourceType.Database;
-                }
-            }
-
-            return scriptsSource;
-        }
-        */
 
         private static List<string> GetScripts()
         {

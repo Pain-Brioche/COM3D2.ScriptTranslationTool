@@ -69,10 +69,29 @@ namespace COM3D2.ScriptTranslationTool
                 Translate.apiKey = ConfigurationManager.AppSettings.Get("LLM API Key");
                 Translate.modelName = ConfigurationManager.AppSettings.Get("LLM Model Name");
 
+                if (int.TryParse(ConfigurationManager.AppSettings["LLM Max Token"], out int maxToken))
+                    Translate.max_tokens = maxToken;
+                else
+                    Translate.max_tokens = -1;
+
+
                 if (double.TryParse(ConfigurationManager.AppSettings["LLM Temperature"], out double tempValue))
-                    Translate.temp = tempValue;                
+                    Translate.temp = tempValue;
                 else
                     Translate.temp = 0.5;
+
+                if (double.TryParse(ConfigurationManager.AppSettings["LLM Repetition Penalty"], out double repetition_penalty))
+                    Translate.repetition_penalty = repetition_penalty;
+                else
+                    Translate.repetition_penalty = 1.1;
+
+                if (double.TryParse(ConfigurationManager.AppSettings["LLM Top P"], out double top_p))
+                    Translate.top_p = top_p;
+                else
+                    Translate.top_p = 0.9;
+
+                Program.enableOverwrite = !bool.TryParse(ConfigurationManager.AppSettings["Enable overwrites"], out var value);
+
             }
         }
 
