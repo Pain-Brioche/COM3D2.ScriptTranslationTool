@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -30,7 +31,7 @@ namespace COM3D2.ScriptTranslationTool
             string parentPath = Directory.GetParent(Program.i18nExScriptFolder).FullName;
             parentPath = Directory.GetParent(parentPath).FullName;
 
-            if (Directory.Exists(parentPath))
+            if (Directory.Exists(Program.i18nExScriptFolder))
             {
                 string newPath = $"{parentPath} ({DateTime.Now:dd.mm.yyyy hhmmss})";
                 Directory.Move(Program.i18nExScriptFolder, newPath);
@@ -68,36 +69,59 @@ namespace COM3D2.ScriptTranslationTool
             File.AppendAllText(path, savedString);
         }
 
-        internal static void MoveFinished(string file, bool hasError)
+        internal static void SaveTxt(string scriptName, IEnumerable<string> lines, List<string> failures)
         {
-            string endPath;
-            string path = file.Substring(file.IndexOf("Japanese"));
-            if (hasError)
+            string folder = "[UnCategorized]";
+
+            foreach (KeyValuePair<string, string> kvp in SortedFolder.Dict)
             {
-                endPath = Path.Combine(Program.translatedScriptFolder, "[ERROR]", path);
+                if (scriptName.StartsWith(kvp.Key))
+                {
+                    folder = kvp.Value;
+                    break;
+                }
             }
+
+
+
+            string fileName = $"{Path.GetFileNameWithoutExtension(scriptName)}.txt";
+            string path = Path.Combine(Program.i18nExScriptFolder, folder, fileName);
+
+            //Implementing failure checks
+            //File.AppendAllLines(path, lines);
+
+            bool ok = TryAppendAllLines(path, lines);
+
+            if (!ok)
+                failures.Add(fileName);
             else
-            {
-                endPath = Path.Combine(Program.translatedScriptFolder, path);
-            }
+                Console.WriteLine($"Writing: {fileName}");
+        }
 
-            Tools.MakeFolder(Path.GetDirectoryName(endPath));
-
-            try
+        private static bool TryAppendAllLines(string path, IEnumerable<string> lines)
+        {
+            for (int attempt = 1; attempt <= 5; attempt++)
             {
-                File.Move(file, endPath);
+                try
+                {
+                    File.AppendAllLines(path, lines);
+                    return true; // success
+                }
+                catch (Exception)
+                {
+                    // small delay before retrying
+                    Thread.Sleep(500 * attempt);
+                }
             }
-            catch (Exception)
-            {
-                // if the file is left in place it will be ignored next time, not really an issue.
-            }
+            
+            return false; // failure
         }
     }
 
 
     internal static class SortedFolder
     {
-        internal static Dictionary<string, string> Dict = new Dictionary<string, string>
+        internal readonly static Dictionary<string, string> Dict = new Dictionary<string, string>
         {
             {"a1_", "Muku"},
             {"b1_", "Majime"},

@@ -1,257 +1,403 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.PerformanceData;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace COM3D2.ScriptTranslationTool
 {
     internal static class ScriptTranslation
     {
-        static HashSet<string> alreadyParsedScripts = new HashSet<string>();
         static Dictionary<string, List<string>> jpCache = new Dictionary<string, List<string>>();
-        static Dictionary<string, byte[]> bsonDictionarry = new Dictionary<string, byte[]>();
-        static List<string> scriptFiles = new List<string>();
+        static List<string> scripts = new List<string>();
+        static readonly Dictionary<string, List<string>> subtitles = new Dictionary<string, List<string>>();
+        static ScriptSourceType scriptSourceType = ScriptSourceType.None;
+        const int autoSaveTimer = 12 * 60 * 1000;
+        static Stopwatch stopwatch;
 
 
         internal static void Process(ref int scriptCount, ref int lineCount)
         {
-            // Create folder to sort script files in
-            if (Program.exportToi18nEx && !Program.isExportBson)
+            BuildSubtitlesDictionary();
+
+            //Starting the timer for the AutoSave
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+
+            //getting script list from one of three potential sources
+            scripts = GetScripts();
+
+            foreach (string script in scripts)
             {
-                ScriptManagement.CreateSortedFolders();
-            }
+                // No need to do any of this is no translation tools are running and
+                if (!Program.isTranslatorRunning) break;
 
-            //getting script list from one of two potential sources
-            scriptFiles = GetScripts();
+                CheckAutoSaveTimer();
 
-            int scriptTotal = scriptFiles.Count;
+                scriptCount++;
+                Console.Title = $"Processing ({scriptCount} out of {scripts.Count} scripts)";
 
-            if (scriptTotal == 0)
-            {
-                Tools.WriteLine("No Scripts or Cache found, Translation Aborted", ConsoleColor.Red);
-                Program.OptionMenu();
-            }
+                string scriptName = Path.GetFileName(script);
 
-            foreach (string file in scriptFiles)
-            {
-                if (alreadyParsedScripts.Contains(file)) { continue; }
+                //getting line list from one of three potential sources
+                var lines = GetLines(scriptName);
+                if (lines.Count == 0) { continue; }
 
-                StringBuilder concatStrings = new StringBuilder();
-                string filename = Path.GetFileName(file);
-                bool hasError = false;
-
-                Tools.WriteLine($"\n-------- {filename} --------", ConsoleColor.Yellow);
-
-                //getting line list from one of two potential sources
-                var lines = GetLines(filename);
+                Tools.WriteLine($"\n-------- {scriptName} --------", ConsoleColor.Yellow);
 
                 foreach (string line in lines)
                 {
-                    ScriptLine currentLine;
+                    // skip if line is empty
+                    if (string.IsNullOrEmpty(line.Trim())) continue;
 
-                    if (Cache.scriptCache.ContainsKey(line.Trim()))
-                    {
-                        //Console.WriteLine("EXISTING LINE");
-                        currentLine = Cache.scriptCache[line.Trim()];
-                    }                        
-                    else
-                    {
-                        //Console.WriteLine("NEW LINE");
-                        currentLine = new ScriptLine(filename, line);
-                    }
-                        
+                    // skip ------------Text----------- ChoiceSet
+                    if (line.Contains("-----")) continue;
+
+                    ConsoleColor color = ConsoleColor.Gray;
+                    string japanese = line.Trim();
+                    string translation = string.Empty;
 
                     lineCount++;
-
-                    // skip if line is empty
-                    if (string.IsNullOrEmpty(currentLine.Japanese)) { continue; }
-
-                    Console.Write(currentLine.Japanese);
+                    Console.Write(japanese);
                     Tools.Write(" => ", ConsoleColor.Yellow);
 
+                    Line currentLine = Db.GetLine(japanese);
 
-                    //Translate if needed/possible
-                    if (Program.isSugoiRunning)
+                    //Skip already failed lines
+                    if (currentLine.HasError)
                     {
-                        if (string.IsNullOrEmpty(currentLine.English) || (Program.forcedTranslation && string.IsNullOrEmpty(currentLine.MachineTranslation)))
-                        {
-                            currentLine.GetTranslation();
-
-                            //ignore faulty returns
-                            if (currentLine.HasRepeat || currentLine.HasError)
-                            {
-                                hasError = true;
-                                Cache.AddToError(currentLine);
-                                Tools.WriteLine($"This line returned a faulty translation and was placed in {Program.errorFile}", ConsoleColor.Red);
-                                continue;
-                            }
-
-                            Cache.AddToMachineCache(currentLine);
-                        }
+                        Tools.WriteLine("This line was already tried this session and failed.", ConsoleColor.Red);
+                        continue;
                     }
-                    else if (string.IsNullOrEmpty(currentLine.English))
+
+                    //Get best translation possible Manual > Official > Machine.
+                    translation = currentLine.GetBestTranslation(ref color);
+
+                    //translate if needed and possible
+                    if (string.IsNullOrEmpty(translation) && Program.isTranslatorRunning)
+                    {
+                        translation = currentLine.GetTranslation(japanese);
+                        color = ConsoleColor.Blue;
+                    }
+
+                    //add the script name to the database in case the sources are loose .txt
+                    if (scriptSourceType == ScriptSourceType.ScriptFile && !currentLine.scriptFiles.Contains(scriptName))
+                        currentLine.scriptFiles.Add(scriptName);
+
+                    //In case a translation is missing and sugoi isn't running
+                    else if (string.IsNullOrEmpty(translation) && !Program.isTranslatorRunning)
                     {
                         Tools.WriteLine($"This line wasn't found in any cache and can't be translated since sugoi isn't running", ConsoleColor.Red);
                         continue;
                     }
 
-
-                    Tools.WriteLine(currentLine.English, currentLine.Color);
-
-                    currentLine.FilePath = filename;
-
-                    // add to i18nEx script folder
-                    if (Program.exportToi18nEx)
+                    //Ignore faulty results
+                    if (currentLine.HasError || currentLine.HasRepeat || translation == string.Empty)
                     {
-                        if (Program.isExportBson)
-                            concatStrings.AppendLine($"{currentLine.Japanese}\t{currentLine.English}".Trim());                        
-                        else
-                            ScriptManagement.AddTo(currentLine);
+                        Tools.WriteLine($"This line returned a faulty translation and was placed in {Program.errorFile}", ConsoleColor.Red);
+                        continue;
                     }
-                }
 
-                scriptCount++;
-
-                if (Program.isExportBson)
-                {
-                    bsonDictionarry.Add($"{Path.GetFileNameWithoutExtension(filename)}.txt",Encoding.UTF8.GetBytes(concatStrings.ToString().Trim()));
-                }
-
-                alreadyParsedScripts.Add(filename);
-
-                if (Program.moveFinishedRawScript)
-                {
-                    ScriptManagement.MoveFinished(file, hasError);
-                }
-
-                Console.Title = $"Processing ({scriptCount} out of {scriptTotal} scripts)";
-            }
-
-            // Adding back subtitles
-            if (Directory.Exists(Path.Combine(Program.cacheFolder, "Subtitles")) && Program.exportToi18nEx)
-            {
-                IEnumerable<string> subtitlesFiles = Directory.EnumerateFiles(Path.Combine(Program.cacheFolder, "Subtitles"));
-
-                if (subtitlesFiles.Any())
-                {
-                    foreach (string subFile in subtitlesFiles)
-                    {
-
-                        if (Program.isExportBson)
-                        {
-                            string subFileName = $"{Path.GetFileNameWithoutExtension(subFile)}";
-                            var bytes = File.ReadAllBytes(subFile);
-
-                            if(bytes.Length > 0)
-                            {
-                                if (bsonDictionarry.ContainsKey(subFileName))
-                                {
-                                    bsonDictionarry[subFileName] = bsonDictionarry[subFileName].Concat(bytes).ToArray();
-                                }
-                                else
-                                {
-                                    bsonDictionarry.Add(subFileName, bytes);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            string subFileName = $"{Path.GetFileName(subFile)}";
-                            string[] scriptFile = Directory.GetFiles(Program.i18nExScriptFolder, subFileName, SearchOption.AllDirectories);
-
-                            if (scriptFile.Length > 0)
-                            {
-                                Tools.WriteLine($"Adding subtitles to {subFileName}.", ConsoleColor.Green);
-                                string[] strings = File.ReadAllLines(subFile);
-                                File.AppendAllLines(scriptFile[0], strings);
-                            }
-                            else
-                            {
-                                Tools.WriteLine($"Creating new subtitle script {subFileName}", ConsoleColor.Green);
-                                string subPath = Path.Combine(Program.i18nExScriptFolder, "[Subtitles]");
-                                Tools.MakeFolder(subPath);
-                                File.Copy(subFile, Path.Combine(subPath, subFileName));
-                            }
-                        }
-                    }
+                    //Display final result
+                    Tools.WriteLine(translation, color);
                 }
             }
-            else
+
+            Db.SaveToJson();
+
+            if (Program.currentExport == Program.ExportFormat.Txt)
+                ExportToTxt();
+            else if (Program.currentExport == Program.ExportFormat.Bson)
+                ExportToBson();
+            else if (Program.currentExport == Program.ExportFormat.Zst)
+                ExportToZst();
+            else if (Program.currentExport == Program.ExportFormat.JaT)
+                ExportToJaT();
+
+            //clearing caches to free up memory
+            jpCache.Clear();
+            scripts.Clear();
+            subtitles.Clear();
+
+        }
+
+
+        private static void ExportToTxt()
+        {
+            Tools.WriteLine("Exporting as a batch of .txt files...", ConsoleColor.Magenta);
+
+            // Create folder to sort script files in
+            ScriptManagement.CreateSortedFolders();
+;
+            var scriptsFilename = scripts.Select(fn => Path.GetFileName(fn));
+            Console.WriteLine($"Found {scriptsFilename.Count()} scripts files");
+
+            var scriptGroups = Db.Data
+                                 .SelectMany(kvp => kvp.Value.scriptFiles
+                                 .Where(sf => scriptsFilename.Contains(sf))
+                                 .Select(sf => new
+                                 {
+                                     Script = sf,
+                                     Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                                 }))
+                                 .GroupBy(x => x.Script);
+
+            Console.WriteLine($"scriptGoups contains: {scriptGroups.Count()}");
+
+
+            List<string> failures = new List<string>();
+
+            foreach (var group in scriptGroups)
             {
-                Tools.WriteLine($"No subtitles cache found, skipping", ConsoleColor.White);
+                var subs = GetSubtitles(group.Key);
+                var lines = group.Select(x => x.Line).Concat(subs).ToList();
+                ScriptManagement.SaveTxt(group.Key, lines, failures);
             }
 
-            if (Program.exportToi18nEx && Program.isExportBson)
+            if (failures.Count > 0)
             {
-                Tools.WriteLine("\nSaving script as .bson.", ConsoleColor.Magenta);
-                Tools.MakeFolder(Program.i18nExScriptFolder);
-                string bsonPath = Path.Combine(Program.i18nExScriptFolder, "script.bson");
-                Cache.SaveBson(bsonDictionarry, bsonPath);
-
-
-                Tools.WriteLine("\nSaving script as .zst.", ConsoleColor.Magenta);
-                Tools.MakeFolder(Program.i18nExScriptFolder);
-                string zstPath = Path.Combine(Program.i18nExScriptFolder, "script.zst");
-                Cache.SaveZstdMsgPack(bsonDictionarry, zstPath);
+                Tools.WriteLine("Those files cannot be written on disk after five retries and should be processed again.", ConsoleColor.DarkRed);
+                foreach (var failure in failures)
+                    Tools.WriteLine(failure, ConsoleColor.Red);
             }
         }
 
+        private static void ExportToBson()
+        {
+            Tools.WriteLine("\nSaving script as .bson.", ConsoleColor.Magenta);
+
+            Tools.MakeFolder(Program.i18nExScriptFolder);
+            string bsonPath = Path.Combine(Program.i18nExScriptFolder, "script.bson");
+            var byteDictionary = GetBytesDictionary();
+
+            Export.SaveBson(byteDictionary, bsonPath);
+        }
+
+        private static void ExportToZst()
+        {
+            Tools.WriteLine("\nSaving script as .zst.", ConsoleColor.Magenta);
+
+            Tools.MakeFolder(Program.i18nExScriptFolder);
+            string zstPath = Path.Combine(Program.i18nExScriptFolder, "script.zst");
+            var byteDictionary = GetBytesDictionary();
+
+            Export.SaveZstdMsgPack(byteDictionary, zstPath);
+        }
+
+        private static void ExportToJaT()
+        {
+            Tools.MakeFolder(Program.i18nExScriptFolder);
+
+            IEnumerable<string> exportLines = Db.Data
+                                                .Where(s => s.Value.scriptFiles.Any())
+                                                .Select(d => $"{d.Key}{Program.splitChar}{Program.splitChar}{Program.splitChar}{d.Value.GetBestTranslation().Replace("\t", " ")}");
+
+            File.WriteAllLines($"JaTScripts.txt", exportLines);
+
+
+
+
+            // Expression régulière pour extraire les valeurs "voice" et "translation"
+            string pattern = @"""translation"":""(?<Translation>[^""]*)"",.*?""voice"":""(?<Voice>[^""""]*)""";
+
+            //Export subtitles as JaT format (AudioFile\tTranslaiton
+            IEnumerable<string> jatSubs = subtitles.SelectMany(s => s.Value)
+                                                   .Select(line =>
+                                                   {
+
+                                                       var match = Regex.Match(line, pattern);
+
+                                                       if (match.Success)
+                                                       {
+                                                           // Extraire les groupes capturés
+                                                           string voice = match.Groups["Voice"].Value;
+                                                           string translation = match.Groups["Translation"].Value;
+
+                                                           //Console.WriteLine($"Voice: {voice}");
+                                                           //Console.WriteLine($"Translation: {translation}");
+
+                                                           return $"{voice}\t\t{translation}";
+                                                       }
+                                                       else
+                                                       {
+                                                           //Tools.WriteLine($"{line} has not match", ConsoleColor.Red);
+                                                           return null;
+                                                       }
+                                                   })
+                                                   .Where(s => s != null);
+
+            if (jatSubs.Any())
+                File.WriteAllLines($"JaTSubtitles.txt", jatSubs);
+        }
+
+        //The method reviewed and fixed by copilot, can't take credit for this linq it's more complicated than it looks.
+        private static Dictionary<string, byte[]> GetBytesDictionary()
+        {
+
+            //That's why I don't like using AI, it's supposed to get all scripts and corresponding lines with sentences, but I don't understand it...
+            var scriptGroups = Db.Data
+                                 .SelectMany(kvp => kvp.Value.scriptFiles
+                                                             .Where(_ => !string.IsNullOrEmpty(kvp.Value.GetBestTranslation()))
+                                                             .Select(sf => new
+                                                             {
+                                                                 Script = sf,
+                                                                 Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                                                             }))
+                                 .GroupBy(x => x.Script);
+
+            int count = 0;
+            int total = scriptGroups.Count();
+            var byteDictionary = new Dictionary<string, byte[]>();
+            var culture = CultureInfo.GetCultureInfo("fr-FR");
+
+            foreach (var group in scriptGroups)
+            {
+                string script = group.Key;
+                IEnumerable<string> lines = group.Select(x => x.Line);
+
+                // Add enventual subtitles.
+                var subs = GetSubtitles(script);
+                if (subs.Any()) lines = lines.Concat(subs);
+
+                // Convert to UTF-8
+                byte[] bytes = Encoding.UTF8.GetBytes(string.Join(Environment.NewLine, lines).Trim());
+                byteDictionary.Add(script, bytes);
+
+                count++;
+                Console.Title = $"{count.ToString("N0", culture)} sur {total.ToString("N0", culture)}";
+            }
+
+            //Exporting subtitles as a JaT compatible syntax
+
+            List<string> jatSubs = new List<string>();
+            foreach (var subFile in subtitles) 
+            {
+                foreach (var s in subFile.Value)
+                {
+                    JObject obj = JObject.Parse(s);
+
+                    string voice = (string)obj["voice"];
+                    string translation = (string)obj["translation"];
+
+                    jatSubs.Add($"{voice}\t\t{translation}");
+                }
+            }
+            File.WriteAllLines("Scripts\\JaTSubtitles.txt", jatSubs);
+
+            return byteDictionary;
+        }
 
 
         private static List<string> GetScripts()
         {
-            var scripts = new List<string>();
+            var scriptsSource = Directory.EnumerateFiles(Program.japaneseScriptFolder, "*.txt*", SearchOption.AllDirectories)
+                         .ToList();
 
-            if (Program.isSourceJpGame)
+            if (scriptsSource.Any())
             {
-                string jpCachePath = Path.Combine(Program.cacheFolder, Program.jpCacheFile);
-
-                if (File.Exists(jpCachePath))
-                {
-                    Console.WriteLine("Loading Jp cache");
-                    jpCache = Cache.LoadJson(jpCache, jpCachePath);
-                    Tools.WriteLine($"{jpCache.Count} scripts cached", ConsoleColor.Green);
-
-                    scripts = jpCache.Keys.ToList();
-                }
-                else
-                {
-                    Console.WriteLine("Jp cache not found.");
-
-                }
+                Tools.WriteLine($"Loading {scriptsSource.Count} files from the Japanese script folder.", ConsoleColor.Green);
+                scriptSourceType = ScriptSourceType.ScriptFile;
             }
             else
             {
-                scripts = Directory.EnumerateFiles(Program.japaneseScriptFolder, "*.txt*", SearchOption.AllDirectories)
-                                   .ToList();
+                // Get all scripts names in the database, only scripts having at least one sentence to translate are selected.
+                Tools.WriteLine($"Loading scripts from the Translation Database.", ConsoleColor.Green);
+                Tools.WriteLine("Please note that only scripts containing untranslated sentences are selected, to avoid unecessary listing.", ConsoleColor.Green);
+                scriptsSource = Db.Data.Values
+                                  .Where(l => string.IsNullOrEmpty(l.GetBestTranslation()))
+                                  .SelectMany(line => line.scriptFiles)
+                                  .Distinct()
+                                  .ToList();
+
+                scriptSourceType = ScriptSourceType.Database;
             }
 
-            return scripts;
+            return scriptsSource;
         }
 
         private static List<string> GetLines(string filename)
         {
             List<string> lines = new List<string>();
 
-            if (Program.isSourceJpGame)
+            if (scriptSourceType == ScriptSourceType.JpCache)
             {
                 lines = jpCache[filename];
             }
-            else
+            else if (scriptSourceType == ScriptSourceType.ScriptFile)
             {
                 //Load all scripts with the same name
-                string[] sameNameScripts = scriptFiles.Where(f => Path.GetFileName(f) == filename).ToArray();
+                string[] sameNameScripts = scripts.Where(f => Path.GetFileName(f) == filename).ToArray();
 
                 //merge them as one without duplicated lines.
                 foreach (string s in sameNameScripts)
-                {
                     lines.AddRange(File.ReadAllLines(s));
-                }
+            }
+            else if (scriptSourceType == ScriptSourceType.Database)
+            {
+                //Only returns lines without available translations.
+                lines = Db.Data
+                          .Where(d => d.Value.scriptFiles.Contains(filename) && string.IsNullOrEmpty(d.Value.GetBestTranslation()))
+                          .Select(l => l.Key)
+                          .ToList();
             }
 
+
             return lines.Distinct().ToList();
+        }
+
+        private static void BuildSubtitlesDictionary()
+        {
+            string subPath = Path.Combine(Program.cacheFolder, "Subtitles");
+
+            if (subtitles.Count == 0 && Directory.Exists(subPath))
+            {
+                IEnumerable<string> subtitlesFiles = Directory.GetFiles(subPath, "*.txt", SearchOption.TopDirectoryOnly);
+
+                foreach (string subtitleFile in subtitlesFiles)
+                {
+                    string scriptName = Path.GetFileNameWithoutExtension(subtitleFile);
+                    List<string> sbs = File.ReadAllLines(subtitleFile).ToList();
+
+                    subtitles.Add(scriptName, sbs);
+                }
+            }
+        }
+
+        private static IEnumerable<string> GetSubtitles(string script)
+        {
+            List<string> subs = new List<string>();
+
+            if (subtitles.ContainsKey(script))
+                subs = subtitles[script];
+
+            return subs;
+        }
+
+        private static void CheckAutoSaveTimer()
+        {
+            if (stopwatch.ElapsedMilliseconds > autoSaveTimer)
+            {
+                Console.WriteLine("\n===========================================================");
+                Db.SaveToJson();
+                Console.WriteLine("\n===========================================================");
+                stopwatch.Restart();
+            }
+        }
+
+        private enum ScriptSourceType
+        {
+            None,
+            JpCache,
+            ScriptFile,
+            Database
         }
     }
 }
