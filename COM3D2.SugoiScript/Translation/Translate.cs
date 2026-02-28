@@ -87,7 +87,7 @@ namespace COM3D2.ScriptTranslationTool
                     new Message { role = "user", content = str }
                 },
                 temperature = temp,
-                max_tokens = -1,
+                max_tokens = max_tokens,
                 repetition_penalty = repetition_penalty,
                 top_p = top_p,
                 stream = false
