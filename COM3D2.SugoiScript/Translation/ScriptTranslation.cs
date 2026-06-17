@@ -137,20 +137,44 @@ namespace COM3D2.ScriptTranslationTool
             // Create folder to sort script files in
             ScriptManagement.CreateSortedFolders();
 ;
-            var scriptsFilename = scripts.Select(fn => Path.GetFileName(fn));
-            Console.WriteLine($"Found {scriptsFilename.Count()} scripts files");
+            Dictionary<string, string[]> scriptGroups = new Dictionary<string, string[]>();
 
-            var scriptGroups = Db.Data
-                                 .SelectMany(kvp => kvp.Value.scriptFiles
-                                 .Where(sf => scriptsFilename.Contains(sf))
-                                 .Select(sf => new
-                                 {
-                                     Script = sf,
-                                     Line = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
-                                 }))
-                                 .GroupBy(x => x.Script);
 
-            Console.WriteLine($"scriptGoups contains: {scriptGroups.Count()}");
+            //In case there is no script source, we get all scripts from the database.
+            if (scripts.Count == 0)
+            {
+                scriptGroups = Db.Data
+                                     .SelectMany(kvp => kvp.Value.scriptFiles                                     
+                                     .Select(sf => new
+                                     {
+                                         ScriptName = sf,
+                                         FormattedLine = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                                     }))
+                                     .GroupBy(x => x.ScriptName)
+                                     .ToDictionary(
+                                         group => group.Key,
+                                         group => group.Select(x => x.FormattedLine).ToArray()
+                                     );
+            }
+            else
+            {
+                var scriptsFilename = scripts.Select(fn => Path.GetFileName(fn));
+                Console.WriteLine($"Found {scriptsFilename.Count()} scripts files");
+
+                scriptGroups = Db.Data
+                                     .SelectMany(kvp => kvp.Value.scriptFiles
+                                     .Where(sf => scriptsFilename.Contains(sf))
+                                     .Select(sf => new
+                                     {
+                                         ScriptName = sf,
+                                         FormattedLine = $"{kvp.Key}{Program.splitChar}{kvp.Value.GetBestTranslation()}"
+                                     }))
+                                     .GroupBy(x => x.ScriptName)
+                                     .ToDictionary(
+                                         group => group.Key,
+                                         group => group.Select(x => x.FormattedLine).ToArray()
+                                     );
+            }
 
 
             List<string> failures = new List<string>();
@@ -158,7 +182,8 @@ namespace COM3D2.ScriptTranslationTool
             foreach (var group in scriptGroups)
             {
                 var subs = GetSubtitles(group.Key);
-                var lines = group.Select(x => x.Line).Concat(subs).ToList();
+                var lines = group.Value;
+                //var lines = group.Select(x => x.Line).Concat(subs).ToList();
                 ScriptManagement.SaveTxt(group.Key, lines, failures);
             }
 

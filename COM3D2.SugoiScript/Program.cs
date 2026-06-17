@@ -39,6 +39,7 @@ namespace COM3D2.ScriptTranslationTool
         internal static string engGameDataPath = "";
 
         internal static bool enableOverwrite = true;
+        internal static bool prioritizeDatabase = false;
         internal static bool isTranslatorRunning = false;
         internal static bool isSafeExport = false;
         //internal static bool isSourceJpGame = false;

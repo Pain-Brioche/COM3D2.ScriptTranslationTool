@@ -32,7 +32,7 @@ namespace COM3D2.ScriptTranslationTool
         }
 
         internal static void Add(string japanese, string translation = "", TlType type = TlType.Ignored, string scriptFile = "", string csvFile = "", string[] scriptFiles = null)
-        { 
+        {
             //All Japanese sentences should be trimmed and obviously not empty
             japanese = japanese.Trim();
             if (string.IsNullOrWhiteSpace(japanese)) return;
@@ -76,13 +76,12 @@ namespace COM3D2.ScriptTranslationTool
                     data[japanese].Manual = translation;
             }
         }
-        
+
 
         private static void Remove(string japanese)
         {
             data.Remove(japanese.Trim());
         }
-
 
         internal static void Clean()
         {
@@ -322,7 +321,7 @@ namespace COM3D2.ScriptTranslationTool
             CleanPost();
             return Machine;
         }
-    }    
+    }
 
 
     enum TlType

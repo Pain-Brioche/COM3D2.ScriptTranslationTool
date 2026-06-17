@@ -90,8 +90,8 @@ namespace COM3D2.ScriptTranslationTool
                 else
                     Translate.top_p = 0.9;
 
-                Program.enableOverwrite = !bool.TryParse(ConfigurationManager.AppSettings["Enable overwrites"], out var value);
-
+                Program.enableOverwrite = bool.TryParse(ConfigurationManager.AppSettings["Enable overwrites"], out var parsedOverwrite) ? parsedOverwrite : true;
+                Program.prioritizeDatabase = bool.TryParse(ConfigurationManager.AppSettings["UI Prioritize Database"], out var parsed) ? parsed : false;
             }
         }
 

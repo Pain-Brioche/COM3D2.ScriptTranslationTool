@@ -119,9 +119,15 @@ namespace COM3D2.ScriptTranslationTool
 
                             Db.Add(values[3], values[4], tlType);
 
-                            //Recover eventual manual translations
-                            if (!string.IsNullOrEmpty(currentLine.Manual))
-                                  values[4] = currentLine.Manual;
+                            //Recover eventual translations
+                            if (Program.prioritizeDatabase)
+                            {
+                                values[4] = currentLine.GetBestTranslation();
+                            }
+                            else if (!string.IsNullOrEmpty(currentLine.Manual))
+                            {
+                                values[4] = currentLine.Manual;
+                            }
 
                             csvOutput.Add(GetExportString(values, csv));
                             continue;
