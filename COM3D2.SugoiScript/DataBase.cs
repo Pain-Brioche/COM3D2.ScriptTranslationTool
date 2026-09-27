@@ -77,7 +77,6 @@ namespace COM3D2.ScriptTranslationTool
             }
         }
 
-
         private static void Remove(string japanese)
         {
             data.Remove(japanese.Trim());
