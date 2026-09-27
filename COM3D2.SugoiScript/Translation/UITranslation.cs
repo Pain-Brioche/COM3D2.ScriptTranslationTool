@@ -1,185 +1,249 @@
 ﻿using System;
-using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
-using System.Collections.Concurrent;
+
 
 namespace COM3D2.ScriptTranslationTool
 {
     internal static class UITranslation
     {
-        internal static void Process()
+        static List<string> alreadyParsedTerms = new List<string>();
+        static readonly int autoSaveTimer = 12 * 60 * 1000;
+        static Stopwatch stopwatch;
+
+
+        internal static void Process(ref int csvCount, ref int termCount)
         {
-            Dictionary<string, string[]> tempTermCache = new Dictionary<string, string[]>();
+            //Starting the timer for the AutoSave
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
 
-            //trying to load official .json
-            string[] jsonFiles =
+
+            if (Directory.Exists(Program.UIExportFolder))
             {
-                "dynamic.json",
-                "dance_subtitle.json",
-                "parts.json",
-                "yotogi.json"
-            };
-
-            foreach (string jsonFile in jsonFiles)
-            {
-                string jsonPath = Path.Combine(Program.cacheFolder, jsonFile);
-
-                if (!File.Exists(jsonPath)) continue;
-
-                string jsonData = File.ReadAllText(jsonPath);
-
-                var jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.MissingMemberHandling = MissingMemberHandling.Ignore;
-
-                var translationsTerms = JsonConvert.DeserializeObject<TermDatas>(jsonData, jsonSerializerSettings);
-
-                Console.WriteLine($"{jsonFile} contains {translationsTerms.mTerms.Count} terms.");
-
-                foreach ( var termData in translationsTerms.mTerms )
-                {
-                    if (!tempTermCache.ContainsKey(termData.Term))
-                        tempTermCache.Add(termData.Term, termData.Languages);
-                }
-                
-                /*                if (File.Exists(jsonPath) && !Program.isSafeExport)
-                                    {
-                                        string[] strings = File.ReadAllLines(jsonPath);
-                                        for (int i = 0; i < strings.Length; i++)
-                                        {
-                                            if (strings[i].Contains("\"Languages\":"))
-                                            {
-                                                string jp = Regex.Replace(strings[i + 1].Replace("\"", "").Trim().Trim(','), @"\s+", " ");
-                                                string eng = strings[i + 2].Replace("\"", "").Trim().Trim(',');
-
-                                                if (!tempCSVCache.ContainsKey(jp) && !string.IsNullOrEmpty(jp))
-                                                {
-                                                    tempCSVCache.Add(jp, eng);
-                                                    Console.WriteLine($"Loaded translation: {jp} {eng}");
-                                                }
-                                            }
-                                        }
-                                    }*/
+                string newPath = $"{Program.UIExportFolder} ({DateTime.Now:dd-mm-yyyy hhmmss})";
+                Directory.Move(Program.UIExportFolder, newPath);
             }
 
-            Tools.MakeFolder(Program.i18nExUIFolder);
-            IEnumerable<string> csvs = Directory.EnumerateFiles(Program.japaneseUIFolder, "*.csv*", SearchOption.AllDirectories);
-            int csvCount = 1;
-            
+            Tools.MakeFolder(Program.UIExportFolder);
+
+            string[] csvs = Directory.GetFiles(Program.UISourceFolder, "*.csv*", SearchOption.AllDirectories)
+                         .OrderBy(path => path.Contains("ENG") ? 0 : 1)
+                         .ToArray();
+
+            List<string> errorCsv = new List<string>();
+
             foreach (string csv in csvs)
             {
-                Tools.WriteLine($"\n-------- {Path.GetFileName(csv)} --------", ConsoleColor.Yellow);
+                CheckAutoSaveTimer();
 
-                //reading csv files
-                List<CsvLine> csvLines = ParseCSV(csv);
+                csvCount++;
+                Console.Title = $"Processing ({csvCount} out of {csvs.Length} scripts)";
 
-                //let's try to translate each line
-                for(int i = 0; i < csvLines.Count; i++)
+                string csvFileName = Path.GetFileName(csv);
+
+                Tools.WriteLine($"\n-------- {csvFileName} --------", ConsoleColor.Yellow);
+
+                string csvInput = File.ReadAllText(csv);
+                List<string> csvOutput = new List<string>();
+
+                using (var csvReader = new StringReader(csvInput))
+                using (var parser = new NotVisualBasic.FileIO.CsvTextFieldParser(csvReader))
                 {
-                    Console.Title = $"Processing: line {i}/{csvLines.Count} from {csvCount}/{csvs.Count()} UI files";
-
-                    var currentLine = csvLines[i];
-
-                    //Some entries may be empty...
-                    if (String.IsNullOrWhiteSpace(currentLine.Japanese))
-                        continue;
-
-                    //retrieve from Cache
-                    string category = Path.GetFileNameWithoutExtension(csv);
-                    string key = currentLine.Key;
-                    string term = $"{category}/{key}";
-                    if (tempTermCache.ContainsKey(term))
+                    //While EoF isn't reached.
+                    while (!parser.EndOfData)
                     {
-                        currentLine.OfficialTranslation = tempTermCache[term][1];
-                        currentLine.Color = ConsoleColor.Green;
-                    }
+                        termCount++;
+                        string[] values;
 
-                    Console.Write(currentLine.Japanese);
-                    Tools.Write(" => ", ConsoleColor.Yellow);
-
-                    //Translate if needed/possible
-                    if (Program.isSugoiRunning && (string.IsNullOrEmpty(currentLine.English) || (Program.forcedTranslation && string.IsNullOrEmpty(currentLine.MachineTranslation))))
-                    {
-                        currentLine.GetTranslation();
-
-                        //ignore faulty returns
-                        if (currentLine.HasRepeat || currentLine.HasError)
+                        //We parse the line
+                        try
                         {
-                            Cache.AddToError(currentLine);
+                            values = parser.ReadFields();
+                        }
+                        catch (Exception)
+                        {
+                            Tools.WriteLine($"line {parser.ErrorLineNumber} of {csv} cannot be parsed, this line will be ignored.", ConsoleColor.Red);
+                            csvOutput.Clear();
+                            errorCsv.Add($"{csv} line {parser.ErrorLineNumber}");
+                            break;
+                        }
+
+                        if (values.Length < 5)
+                        {
+                            Tools.WriteLine($"{string.Join(",", values)} has less than the 5 required entries", ConsoleColor.Red);
+                            errorCsv.Add($"{csv} Term {termCount}");
+                            continue;
+                        }
+
+                        //Getting rid of both chinese entries.
+                        if (values.Length > 5)
+                        {
+                            values = values.Take(5).ToArray();
+                        }
+
+                        //The japanese is always the third index
+                        string term = values[0].Trim();
+                        string japanese = values[3].Trim();
+                        string english = values[4].Trim();
+
+                        //Discarding Terms already exported
+                        if (alreadyParsedTerms.Contains(term)) {Tools.WriteLine($"Line {termCount}: Already translated, skipping.", ConsoleColor.Cyan); continue; }
+
+                        //Sometimes both entries are empty, just ignore those
+                        if (string.IsNullOrEmpty(japanese) && string.IsNullOrEmpty(english)) {Console.WriteLine($"Line {termCount}: Both entries are empty, skipping.", ConsoleColor.Cyan); continue; }
+
+                        //If Only the Japanese entry is missing, pass the entire line as is
+                        if (string.IsNullOrEmpty(japanese) && !string.IsNullOrEmpty(english))
+                        {
+                           csvOutput.Add(GetExportString(values, csv));
+                           continue;
+                        }
+
+                        //Check for translation placeholder
+                        if (term == english) values[4] = "";
+
+                        //Recover eventual translations from the database
+                        Line currentLine = Db.GetLine(japanese);
+
+                        //Some line can already be translated
+                        if (!string.IsNullOrEmpty(english))
+                        {
+                            //Adding english to the database
+                            TlType tlType = TlType.Ignored;
+
+                            if (csv.Contains(Program.UISourceFolder + "\\ENG"))
+                                tlType = TlType.Official;
+
+                            Db.Add(values[3], values[4], tlType);
+
+                            //Recover eventual manual translations
+                            if (!string.IsNullOrEmpty(currentLine.Manual))
+                                  values[4] = currentLine.Manual;
+
+                            csvOutput.Add(GetExportString(values, csv));
+                            continue;
+                        }
+
+                        //Begin the actual translation
+                        string translation = string.Empty;
+                        ConsoleColor color = ConsoleColor.Gray;
+
+                        Console.Write(japanese);
+                        Tools.Write(" => ", ConsoleColor.Yellow);
+
+                        //Get best translation possible Manual > Official > Machine.
+                        translation = currentLine.GetBestTranslation(ref color);
+
+                        //translate if needed and possible
+                        if (string.IsNullOrEmpty(translation) && Program.isTranslatorRunning)
+                        {
+                            translation = currentLine.GetTranslation(japanese);
+                            color = ConsoleColor.Blue;
+                        }
+
+                        //In case a translation is missing and sugoi isn't running
+                        else if (string.IsNullOrEmpty(translation) && !Program.isTranslatorRunning)
+                        {
+                            Tools.WriteLine($"This line wasn't found in any cache and can't be translated since sugoi isn't running", ConsoleColor.Red);
+                            continue;
+                        }
+
+                        //Ignore faulty results
+                        if (currentLine.HasError || currentLine.HasRepeat || translation == string.Empty)
+                        {
                             Tools.WriteLine($"This line returned a faulty translation and was placed in {Program.errorFile}", ConsoleColor.Red);
                             continue;
                         }
+
+                        //Display final result
+                        Tools.WriteLine(translation, color);
+
+                        //Adding the translation to value[4] as this is the english index.
+                        values[4] = translation;
+
+                        //and those values in the csv
+                        csvOutput.Add(GetExportString(values, csv));
                     }
-                    else if (string.IsNullOrEmpty(currentLine.English))
-                    {
-                        Tools.WriteLine($"This line wasn't found in any cache and can't be translated since sugoi isn't running", ConsoleColor.Red);
-                        continue;
-                    }               
-
-
-                    Tools.WriteLine(currentLine.English, currentLine.Color);
-
-                    csvLines[i] = currentLine;
                 }
 
-                //Now that it's translated, let's rebuild the .csv
-
-                //Ignore empty files
-                if (csvLines.Count == 0) continue;
-
-                //Get the new pathcreate folders and write the header
-                string newPath = csv.Replace("UI\\Japanese", Program.i18nExUIFolder);
-                Tools.MakeFolder(Path.GetDirectoryName(newPath));
-                File.WriteAllText(newPath, csvLines[0].ExportHeader());
-
-                //Write content
-                List<string> lines = new List<string>();
-                foreach(CsvLine line in csvLines)
+                //Write the .csv
+                if (csvOutput.Count > 1)
                 {
-                    lines.Add(line.ExportLine());
+                    string newPath = Path.Combine(Program.UIExportFolder, csvFileName);
+
+                    //First line is always the header unless the file already exists.
+                    if (Program.currentExport != Program.ExportFormat.JaT && !File.Exists(newPath))
+                        csvOutput[0] = $"Key,Type,Desc,Japanese,English";
+
+
+                    //First line is always the header, changing it for JaT.
+                    if (Program.currentExport == Program.ExportFormat.JaT && !File.Exists(newPath))
+                        csvOutput[0] = $"Term,Original,Translation";
+
+
+                    File.AppendAllLines(newPath, csvOutput);
                 }
 
-                File.AppendAllLines(newPath, lines);
+                Tools.WriteLine($"{termCount} Terms translated.", ConsoleColor.Magenta);
+            }
 
-                csvCount++;
+            Db.SaveToJson();
+
+            //report on files with errors
+            if (errorCsv.Count > 0)
+            {
+                Tools.WriteLine("\nThose files returned an error:", ConsoleColor.Yellow);
+                foreach (var line in errorCsv)
+                    Tools.WriteLine(line, ConsoleColor.Red);
             }
         }
 
-        //This is using CsvTextFieldParser librabry https://github.com/22222/CsvTextFieldParser
-        private static List<CsvLine> ParseCSV(string csvFileInput)
+        private static string GetExportString(string[] values, string csv)
         {
-            List<CsvLine> csvLines = new List<CsvLine>();
+            alreadyParsedTerms.Add($"{Path.GetFileNameWithoutExtension(csv)}/{values[0].Trim()}");
 
-            string fileName = Path.GetFileName(csvFileInput);
-            string csvInput = File.ReadAllText(csvFileInput);
+            string[] escapedValues = values.Select(v => EscapeCharacters(v)).ToArray();
 
-            using (var csvReader = new StringReader(csvInput))
-            using (var parser = new NotVisualBasic.FileIO.CsvTextFieldParser(csvReader))
+            if (Program.currentExport != Program.ExportFormat.JaT)
             {
-                // Save header to rebuild the csv and know the number of columns.
-                string[] header = new string[0];
-                if (!parser.EndOfData)
-                {
-                    header = parser.ReadFields();
-                }
-                //commented code was here to check where csv parsing broke
-                //int i = 1;
-                while (!parser.EndOfData)
-                {
-                    //i++;
-                    //Tools.Write($" [{i}] ", ConsoleColor.DarkMagenta);
-                    var values = parser.ReadFields();
-
-                    CsvLine line = new CsvLine(fileName, header, values);
-
-                    csvLines.Add(line);
-                }
+                return string.Join(",", escapedValues);
             }
-            return csvLines;
+            else
+            {
+                return $"{Path.GetFileNameWithoutExtension(csv)}/{escapedValues[0]},{escapedValues[3]},{escapedValues[4]}";
+            }
+        }
+
+        private static string EscapeCharacters(string str)
+        {
+            bool containsSpecialChars = str.Contains(",") || str.Contains("\"") || str.Contains("\n");
+
+            if (containsSpecialChars)
+            {
+                // Échappe les guillemets doubles
+                str = str.Replace("\"", "\"\"");
+                // Entoure la valeur de guillemets
+                return $"\"{str}\"";
+            }
+
+            return str;
+        }
+
+        private static void CheckAutoSaveTimer()
+        {
+            if (stopwatch.ElapsedMilliseconds > autoSaveTimer)
+            {
+                Console.WriteLine("\n===========================================================");
+                Db.SaveToJson();
+                Console.WriteLine("\n===========================================================");
+                stopwatch.Restart();
+            }
         }
     }
+
 
 
     public class TermDatas

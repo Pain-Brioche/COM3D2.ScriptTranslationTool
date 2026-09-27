@@ -2,6 +2,10 @@
 using System.IO;
 using System.Configuration;
 using Microsoft.Win32;
+using Newtonsoft.Json.Bson;
+using Newtonsoft.Json;
+using MessagePack;
+using ZstdSharp;
 
 namespace COM3D2.ScriptTranslationTool
 {
@@ -31,7 +35,6 @@ namespace COM3D2.ScriptTranslationTool
             }
         }
 
-
         /// <summary>
         /// return a formated line suited for scripts and caches
         /// </summary>
@@ -42,28 +45,6 @@ namespace COM3D2.ScriptTranslationTool
         {
             string formatedLine = $"{jp}{Program.splitChar}{eng}\n";
             return formatedLine;
-        }
-
-
-        /// <summary>
-        /// Check if sugoi translator is up and running
-        /// </summary>
-        internal static bool CheckTranslatorState()
-        {
-            bool isRunning;
-            ILine test = new ScriptLine("test", "テスト");
-            try
-            {
-                Translate.ToEnglish(test);
-                Tools.WriteLine("\nSugoi Translator is Ready", ConsoleColor.Green);
-                isRunning = true;
-            }
-            catch (Exception)
-            {
-                Tools.WriteLine("\nSugoi Translator is Offline, uncached sentences won't be translated", ConsoleColor.Red);
-                isRunning= false;
-            }
-            return isRunning;
         }
 
 
@@ -83,43 +64,34 @@ namespace COM3D2.ScriptTranslationTool
                 Program.japaneseScriptFolder = ConfigurationManager.AppSettings.Get("JapaneseScriptPath");
                 Program.i18nExScriptFolder = ConfigurationManager.AppSettings.Get("i18nExScriptPath");
                 Program.englishScriptFolder = ConfigurationManager.AppSettings.Get("EnglishScriptPath");
-                Program.translatedScriptFolder = ConfigurationManager.AppSettings.Get("AlreadyTranslatedScriptFolder");
 
-                Program.moveFinishedRawScript = Convert.ToBoolean(ConfigurationManager.AppSettings.Get("MoveTranslated"));
-                Program.exportToi18nEx = Convert.ToBoolean(ConfigurationManager.AppSettings.Get("ExportToi18nEx"));
+                Translate.url = ConfigurationManager.AppSettings.Get("LLM Adress");
+                Translate.apiKey = ConfigurationManager.AppSettings.Get("LLM API Key");
+                Translate.modelName = ConfigurationManager.AppSettings.Get("LLM Model Name");
 
-                //getting GameData path Setting > Registry > Ask
-                if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings.Get("JPGamePath")))
-                {
-                    Program.jpGameDataPath = Path.Combine(ConfigurationManager.AppSettings.Get("JPGamePath"),"GameData");
-                }
+                if (int.TryParse(ConfigurationManager.AppSettings["LLM Max Token"], out int maxToken))
+                    Translate.max_tokens = maxToken;
                 else
-                {
-                    RegistryKey keyJp = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\KISS\カスタムオーダーメイド3D2");
+                    Translate.max_tokens = -1;
 
-                    if (keyJp != null)
-                    {
-                        string installPath = keyJp.GetValue("InstallPath").ToString();
-                        keyJp.Close();
-                        Program.jpGameDataPath = Path.Combine(installPath, "GameData");
-                    }
-                }
 
-                if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings.Get("ENGGamePath")))
-                {
-                    Program.engGameDataPath = Path.Combine(ConfigurationManager.AppSettings.Get("ENGGamePath"), "GameData");
-                }
+                if (double.TryParse(ConfigurationManager.AppSettings["LLM Temperature"], out double tempValue))
+                    Translate.temp = tempValue;
                 else
-                {
-                    RegistryKey keyEn = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\KISS\CUSTOM ORDER MAID3D 2");
+                    Translate.temp = 0.5;
 
-                    if (keyEn != null)
-                    {
-                        string installPath = keyEn.GetValue("InstallPath").ToString();
-                        keyEn.Close();
-                        Program.engGameDataPath = Path.Combine(installPath, "GameData");
-                    }
-                }
+                if (double.TryParse(ConfigurationManager.AppSettings["LLM Repetition Penalty"], out double repetition_penalty))
+                    Translate.repetition_penalty = repetition_penalty;
+                else
+                    Translate.repetition_penalty = 1.1;
+
+                if (double.TryParse(ConfigurationManager.AppSettings["LLM Top P"], out double top_p))
+                    Translate.top_p = top_p;
+                else
+                    Translate.top_p = 0.9;
+
+                Program.enableOverwrite = !bool.TryParse(ConfigurationManager.AppSettings["Enable overwrites"], out var value);
+
             }
         }
 
@@ -145,6 +117,41 @@ namespace COM3D2.ScriptTranslationTool
             Console.ForegroundColor = color;
             Console.Write(str);
             Console.ResetColor();
+        }
+    }
+
+    internal static class Export
+    {
+        /// <summary>
+        /// Save objects as .bson
+        /// </summary>
+        /// <param name="objectToSerialize"></param>
+        /// <param name="path"></param>
+        public static void SaveBson<T>(T objectToSerialize, string path)
+        {
+            using (var fileStream = new FileStream(path, FileMode.Create))
+            using (var writer = new BsonDataWriter(fileStream))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(writer, objectToSerialize);
+            }
+        }
+
+        /// <summary>
+        /// Saves an object as messagePack compressed as .zst
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="objectToSerialize"></param>
+        /// <param name="path"></param>
+        public static void SaveZstdMsgPack<T>(T objectToSerialize, string path)
+        {
+            MessagePackSerializerOptions SerializerOptions = new MessagePackSerializerOptions(MessagePack.Resolvers.ContractlessStandardResolver.Instance);
+
+            using (var fileStream = new FileStream(path, FileMode.Create))
+            using (var compressor = new CompressionStream(fileStream, 22))
+            {
+                MessagePackSerializer.Serialize(compressor, objectToSerialize, SerializerOptions);
+            }
         }
     }
 }
